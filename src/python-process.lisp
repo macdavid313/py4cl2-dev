@@ -53,11 +53,13 @@ By default this is is set to *PYTHON-COMMAND*
                  (#\) (write-string "\\)"))
                  (#\space (write-string "\\ "))
                  (t (write-char ch)))))))
+    (declare (ignorable (function bash-escape-string)))
     (loop :until (python-alive-p)
           :do (setq *python*
                     #+(or os-windows windows)
                     (uiop:launch-program
                      (concatenate 'string
+                                  "set OLDPYTHONIOENCODING=PYTHONIOENCODING PYTHONIOENCODING=utf8 && "
                                   command
                                   " -u "
                                   (namestring
@@ -68,10 +70,8 @@ By default this is is set to *PYTHON-COMMAND*
                                   (directory-namestring
                                    (asdf:component-pathname
                                     (asdf:find-component
-                                     :py4cl2 "python-code"))))
-                     ;; Not much idea why, but
-                     ;; numpy.random loads in windows with latin-1, but errors on linux
-                     :external-format :latin-1
+                                     :py4cl2 "python-code")))
+                                  " & PYTHONIOENCODING=OLDPYTHONIOENCODING")
                      :input :stream
                      :output :stream
                      :error-output :stream)
