@@ -198,7 +198,9 @@ lispifiers = {
 	list       : lambda x: "#.(cl:funcall (getf py4cl2:*arrayfiers* py4cl2:*array-type*) #(" + " ".join(lispify(elt) for elt in x) + "))",
 	tuple      : lambda x: "\"()\"" if len(x)==0 else "(" + " ".join(lispify(elt) for elt in x) + ")",
 	# Note: With dict -> hash table, use :test equal so that string keys work as expected
-	dict       : lambda x: "#.(let ((table (make-hash-table :test (quote cl:equal)))) " + " ".join("(setf (gethash {} table) {})".format(lispify(key), lispify(value)) for key, value in x.items()) + " table)",
+	# TODO: Should test be equalp? Should users get an option to choose the test functions?
+	# Should we avoid using cl:make-hash-table and use custom hash-tables instead?
+	dict       : lambda x: "#.(let ((table (make-hash-table :test (quote cl:equal)))) " + " ".join("(setf (gethash (quote {}) table) (quote {}))".format(lispify(key), lispify(value)) for key, value in x.items()) + " table)",
 	str        : lambda x: "\"" + x.replace("\\", "\\\\").replace("\"", "\\\"")  + "\"",
 	type       : lambda x: python_to_lisp_type[x],
 	Symbol     : str,
