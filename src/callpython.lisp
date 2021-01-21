@@ -232,7 +232,10 @@ Note: FUN-NAME is NOT PYTHONIZEd if it is a string.
            args))
 
   (defun pyslot-value (object slot-name)
-    (pyeval object "." (pythonize-if-needed slot-name))))
+    (pyeval object "." (pythonize-if-needed slot-name)))
+
+  (defun (setf pyslot-value) (new-value object slot-name)
+    (pyexec object "." (pythonize-if-needed slot-name) " = " new-value)))
 
 (defun pygenerator (function stop-value)
   (pycall "_py4cl_generator" function stop-value))
