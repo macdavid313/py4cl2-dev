@@ -9,8 +9,8 @@ jobs:
 
     strategy:
       matrix:
-        lisp: [sbcl, ccl, abcl, ecl]
-    runs-on: ubuntu-latest
+        lisp: [sbcl, ccl, ecl]
+    runs-on: ubuntu-20.04
 
     steps:
 
