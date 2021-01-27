@@ -2,13 +2,13 @@
   :serial t
   :description "Some improvements over py4cl. py4cl is a library for interfacing with python libraries from common lisp, using streams to communicate with the python process.
 Report the issues at https://github.com/digikar99/py4cl2/issues
-(More) Documentation is available at https://digikar99.github.io/py4cl2/"
+ (More) Documentation is available at https://digikar99.github.io/py4cl2/"
   :author #.(concatenate 'string
                          "py4cl author: Ben Dudson <benjamin.dudson@york.ac.uk>"
                          (string #\newline)
                          "py4cl2 maintainer: Shubhamkar Ayare <shubhamayare@yahoo.co.in>")
   :license "MIT"
-  :version "2.6.1"                  ; py4cl is assumed to be version 1
+  :version "2.7.0"                  ; py4cl is assumed to be version 1
   :depends-on ("alexandria"
                "bordeaux-threads"
                "cl-json"
@@ -29,7 +29,10 @@ Report the issues at https://github.com/digikar99/py4cl2/issues
                (:file "callpython"     :depends-on ("reader"
                                                     "writer"
                                                     "python-process"))
-               (:file "import-export"  :depends-on ("callpython"))
+               (:file "arg-list"       :depends-on ("package"
+                                                    "callpython"))
+               (:file "import-export"  :depends-on ("callpython"
+                                                    "arg-list"))
                (:file "do-after-load"  :depends-on ("import-export"))
                (:static-file ".config" :pathname #P"../.config"))
   :perform (test-op (o c)
