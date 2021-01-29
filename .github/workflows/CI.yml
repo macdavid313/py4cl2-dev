@@ -42,6 +42,7 @@ jobs:
       run: | # need to use sudo
         sudo apt install python3-numpy
         sudo apt install python3-networkx
+        sudo apt install python3-matplotlib
 
     - name: download-tests
       run: |

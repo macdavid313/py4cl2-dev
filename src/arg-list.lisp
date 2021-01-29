@@ -185,8 +185,7 @@
                  (keyword-rest
                   `((,@positional ,@(when optional `(&optional ,@optional))
                                   &rest ,keyword-rest
-                                  ,@(when keyword `(&key ,@keyword))
-                                  &allow-other-keys)
+                                  ,@(when keyword `(&key ,@keyword &allow-other-keys)))
                     (() (apply #'raw-pyeval ,fullname "("
                                ,@positional-pass
                                ,@keyword-pass
