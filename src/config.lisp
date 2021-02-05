@@ -69,7 +69,7 @@ Enter full file path for storage (default /tmp/_numpy_pickle.npy): "
 (defun load-config ()
   #.(format nil "Load to *CONFIG* from ~D" +py4cl2-config-path+)
   (let ((config-path +py4cl2-config-path+)
-        (cl-json:*json-symbols-package* *package*))
+        (cl-json:*json-symbols-package* :py4cl2))
     (setq *config* (with-open-file (f config-path)
                      (cl-json:decode-json f)))))
 
