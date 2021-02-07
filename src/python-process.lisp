@@ -59,7 +59,7 @@ By default this is is set to *PYTHON-COMMAND*
                     #+(or os-windows windows)
                     (uiop:launch-program
                      (concatenate 'string
-                                  "set OLDPYTHONIOENCODING=PYTHONIOENCODING PYTHONIOENCODING=utf8 && "
+                                  "set OLDPYTHONIOENCODING=PYTHONIOENCODING && set PYTHONIOENCODING=utf8 && "
                                   command
                                   " -u "
                                   (namestring
@@ -71,7 +71,7 @@ By default this is is set to *PYTHON-COMMAND*
                                    (asdf:component-pathname
                                     (asdf:find-component
                                      :py4cl2 "python-code")))
-                                  " & PYTHONIOENCODING=OLDPYTHONIOENCODING")
+                                  " & set PYTHONIOENCODING=OLDPYTHONIOENCODING")
                      :input :stream
                      :output :stream
                      :error-output :stream)
