@@ -1,6 +1,6 @@
 # py4cl2
 
-[Last update: v2.6.0]
+[Last update: v2.7.0]
 
 ## Introduction
 
@@ -19,9 +19,10 @@ Please report the issues on github: [py4cl2](https://github.com/digikar99/py4cl2
 This shouldn't be a bottleneck if you're planning to run "long" processes in python. (For example, deep learning :). )
 - Virtual environments: [`pycmd`](#pycmd) (`*python-command*` in `py4cl`): Choose which python binary to use. Works with miniconda.
 - Multiple python processes (not documented here) - parallel execution?
-- Tested on SBCL, CCL, ABCL 1.7.1 (Java 1.8), and ECL
+- CI for SBCL, CCL, and ECL
+- v2.6.0 worked with ABCL 1.7.1 (Java 1.8) despite several limitations (see the documentation included in [that release](https://github.com/digikar99/py4cl2/releases/tag/v2.6.0)).
+- While CI has not been set up for windows (a PR is welcome!), from v2.7.0, things will be tested locally before releasing.
 - No support for inheriting python classes - should require MOP
-- Continuous Integration has not been set up for windows; however, the test system ran without errors "as expected" as of version 2.4.1
 - Mac users should update to a later version of bash. See [this stackoverflow question](https://stackoverflow.com/questions/32481734/shell-error-with-bash-bad-substitution-no-closing). Thanks to [byulparen](https://github.com/byulparan) for pointing out!
 - Embeddable into lisp-image - the code from py4cl.py is copied into `*python-code*` and heredocs are used. This is made to happen for unix and not for windows; until someone gets into Windows heredocs. (Maintainer note: This entails not using single-quote character `'` in py4cl.py.) Also note that this still requires the developer (= py4cl2 user) to supply the python libraries and binaries along with the lisp image to the (very-)end-user.
 - Improvements in large array transfer speed numpy-file-format (see [initialize](#initialize)); while this does not beat `remote-objects` in existence since `py4cl`, it does provide a faster way to send array data from lisp to python and can be beneficial while offloading the work to python process, eg. deep learning.
