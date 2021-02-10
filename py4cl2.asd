@@ -22,16 +22,17 @@ Report the issues at https://github.com/digikar99/py4cl2/issues
                (:file "package")
                (:file "config"         :depends-on ("package"))
                (:file "features"       :depends-on ("package"))
-               (:file "reader"         :depends-on ("package"))
-               (:file "writer"         :depends-on ("package" "features"))
                (:file "python-process" :depends-on ("package" "features"))
+               (:file "reader"         :depends-on ("package" "python-process"))
+               (:file "writer"         :depends-on ("package" "features"))
                (:file "lisp-classes"   :depends-on ("package"))
                (:file "callpython"     :depends-on ("reader"
                                                     "writer"
                                                     "python-process"))
                (:file "arg-list"       :depends-on ("package"
                                                     "callpython"))
-               (:file "import-export"  :depends-on ("callpython"
+               (:file "import-export"  :depends-on ("python-process"
+                                                    "callpython"
                                                     "arg-list"))
                (:file "do-after-load"  :depends-on ("import-export"))
                (:static-file ".config" :pathname #P"../.config"))

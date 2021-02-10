@@ -32,6 +32,8 @@ try:
 except:
   pass")))))
 
+(defvar *numpy-pickle-index*)
+
 (defun delete-numpy-pickle-arrays ()
   "Delete pickled arrays, to free space."
   (iter (while (> *numpy-pickle-index* 0))

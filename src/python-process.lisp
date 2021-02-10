@@ -2,29 +2,39 @@
 
 (in-package :py4cl2)
 
-(defvar *python* nil
-  "Most recently started python subprocess")
+(eval-when (:compile-toplevel :load-toplevel :execute)
 
-(defvar *current-python-process-id* 0
-  "A number which changes when python is started. This
+  ;;; The macro below require this to be available - to save us some compile-file warnings
+
+  (defvar *python* nil
+    "Most recently started python subprocess")
+
+  (defvar *current-python-process-id* 0
+    "A number which changes when python is started. This
 is used to prevent garbage collection from deleting objects in the wrong
 python session")
 
-(defvar *python-process-busy-p* nil
-  "Used by pyinterrupt to determine if python process is waiting for input, or
+  (defvar *python-process-busy-p* nil
+    "Used by pyinterrupt to determine if python process is waiting for input, or
 is busy processing.
 
 A possible workaround is to use strace.
 See https://askubuntu.com/questions/1118109/how-do-i-tell-if-a-command-is-running-or-waiting-for-user-input")
 
-(defvar *py4cl-tests* nil)
+  (defvar *py4cl-tests* nil)
 
-(defvar *python-code*
-  (alexandria:read-file-into-string
-   (asdf:component-pathname
-    (asdf:find-component :py4cl2 "python-code"))))
+  (defvar *python-code*
+    (alexandria:read-file-into-string
+     (asdf:component-pathname
+      (asdf:find-component :py4cl2 "python-code"))))
 
-(defvar *python-startup-error*) ; couldn't put this inside the :REPORT!
+  (defvar *python-startup-error*)  ; couldn't put this inside the :REPORT!
+
+  (defvar *python-output-semaphore* (bt:make-semaphore))
+  (defvar *python-output-thread*)
+
+  ;;; This is more of a global variable than a dynamic variable.
+  (defvar *in-with-python-output* nil))
 
 (define-condition python-process-startup-error (error)
   ((command :initarg :command :reader command))
@@ -148,10 +158,6 @@ By default this is is set to *PYTHON-COMMAND*
               (member :arrays *internal-features*))
          (removef *internal-features* :arrays)))
   (incf *current-python-process-id*))
-
-(defvar *python-output-semaphore* (bt:make-semaphore))
-(defvar *python-output-thread*)
-(defvar *in-with-python-output* nil) ; This is more of a global variable than a dynamic variable.
 
 (defmacro with-python-output (&body forms-decl)
   "Gets the output of the python program executed in FORMS-DECL in the form a string."

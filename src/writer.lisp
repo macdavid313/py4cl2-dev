@@ -142,6 +142,21 @@ Is numpy installed on python side?"
                            (pythonize (array-dimensions obj)) ")"
                            astype-string))))))
 
+(defvar *lisp-to-python-alist*
+  '((t . "True")
+    (nil . "False")
+    (float . "float")
+    (boolean . "bool")
+    (null . "type(None)")
+    (integer . "int")
+    (complex . "complex")
+    (vector . "list")
+    (hash-table . "dict")
+    (string . "str")
+    ("None" . "None")
+    ("()" . "()")))
+;; leaves out inspect._empty
+
 (defmethod pythonize ((obj cons))
   "Convert a list. This leaves a trailing comma so that python
 evals a list with a single element as a tuple
@@ -165,21 +180,6 @@ evals a list with a single element as a tuple
                   "~A")
           (write-to-string (coerce obj '(vector character))
                            :escape t :readably t)))))
-
-(defvar *lisp-to-python-alist*
-  '((t . "True")
-    (nil . "False")
-    (float . "float")
-    (boolean . "bool")
-    (null . "type(None)")
-    (integer . "int")
-    (complex . "complex")
-    (vector . "list")
-    (hash-table . "dict")
-    (string . "str")
-    ("None" . "None")
-    ("()" . "()")))
-;; leaves out inspect._empty
 
 (defmethod pythonize ((obj symbol))
   "One-to-one mapping between python name and lisp symbol names:
