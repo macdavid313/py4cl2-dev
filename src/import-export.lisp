@@ -74,7 +74,8 @@ def _py4cl_non_callable(ele):
 (defvar-doc *lisp-package-supplied-p*
   "Internal variable used by PYMODULE-IMPORT-STRING to determine the import string.")
 
-(defmacro defpyfun (fun-name &optional pymodule-name
+(defmacro defpyfun (fun-name
+                    &optional pymodule-name
                     &key
                       (as fun-name)
                       (lisp-fun-name (lispify-name as))
@@ -96,6 +97,10 @@ Arguments:
     package or function, so that the function works even after PYSTOP is called.
     However, this increases the overhead of stream communication, and therefore,
     can reduce speed."
+  `(eval-when (:compile-toplevel :load-toplevel :execute)
+     (defpyfun* ',fun-name ',pymodule-name ',as ',lisp-fun-name ',lisp-package ',safety)))
+
+(defun defpyfun* (fun-name pymodule-name as lisp-fun-name lisp-package safety)
   (check-type fun-name string)
   (check-type lisp-fun-name string)
   (check-type lisp-package package)
@@ -133,12 +138,13 @@ Arguments:
                                                                     :as as)))))
                    ,(second pass-list))
                  ,(if *called-from-defpymodule* `(export ',fun-symbol ,lisp-package)))))
-        #-ecl
-        `(restart-case
-             ,common-code
-           (continue-ignoring-errors nil))
-        #+ecl
-        common-code))))
+        (eval
+         #-ecl
+         `(restart-case
+              ,common-code
+            (continue-ignoring-errors nil))
+         #+ecl
+         common-code)))))
 
 (defvar *is-submodule* nil
   "Used for coordinating import statements from defpymodule while calling recursively")
@@ -155,24 +161,26 @@ Arguments:
                (string= "None" submodules))
       (setq submodules nil))
     (iter (for (submodule has-submodules) in submodules)
-      (for submodule-fullname = (concatenate 'string
-                                             pymodule-name "." submodule))
-      (when (and (char/= #\_ (aref submodule 0)) ; avoid private modules / packages
-                 ;; pkgutil is of type module
-                 ;; import matplotlib does not import matplotlib.pyplot
-                 ;; https://stackoverflow.com/questions/14812342/matplotlib-has-no-attribute-pyplot
-                 ;; We maintain these semantics.
-                 ;; The below form errors in the case of submodules and
-                 ;; therefore returns NIL.
-                 (ignore-errors (pyeval "type(" submodule-fullname
-                                        ") == type(pkgutil)")))
-        (collect (let ((*is-submodule* t))
-                   (macroexpand-1
-                    `(defpymodule ,submodule-fullname
-                         ,has-submodules
-                         :lisp-package ,(concatenate 'string lisp-package "."
-                                                     (lispify-name submodule))
-                         :continue-ignoring-errors ,continue-ignoring-errors))))))))
+          (for submodule-fullname = (concatenate 'string
+                                                 pymodule-name "." submodule))
+          (when (and (char/= #\_ (aref submodule 0)) ; avoid private modules / packages
+                     ;; pkgutil is of type module
+                     ;; import matplotlib does not import matplotlib.pyplot
+                     ;; https://stackoverflow.com/questions/14812342/matplotlib-has-no-attribute-pyplot
+                     ;; We maintain these semantics.
+                     ;; The below form errors in the case of submodules and
+                     ;; therefore returns NIL.
+                     (ignore-errors (pyeval "type(" submodule-fullname
+                                            ") == type(pkgutil)")))
+            (let ((*is-submodule* t))
+              (defpymodule* submodule-fullname
+                has-submodules
+                (concatenate 'string lisp-package "." (lispify-name submodule))
+                t
+                t
+                t
+                continue-ignoring-errors
+                *defpymodule-silent-p*))))))
 
 (declaim (ftype (function (string string)) pymodule-import-string))
 (defun pymodule-import-string (pymodule-name lisp-package)
@@ -194,7 +202,8 @@ Arguments:
 ;;; And the other is the name of the package inside lisp
 ;;; The relation between the two being that the lisp name should
 ;;; pythonize to the python name.
-(defmacro defpymodule (pymodule-name &optional (import-submodules nil)
+(defmacro defpymodule (pymodule-name
+                       &optional (import-submodules nil)
                        &key
                          (lisp-package (lispify-name pymodule-name) lisp-package-supplied-p)
                          (reload t) (safety t)
@@ -214,6 +223,19 @@ Arguments:
   RELOAD: whether to redefine and reimport
   SAFETY: value of safety to pass to defpyfun; see defpyfun
   SILENT: prints \"status\" lines when NIL"
+  `(eval-when (:compile-toplevel :load-toplevel :execute)
+     (defpymodule* ',pymodule-name
+       ',import-submodules
+       ',lisp-package
+       ',lisp-package-supplied-p
+       ',reload
+       ',safety
+       ',continue-ignoring-errors
+       ',silent)))
+
+(defun defpymodule* (pymodule-name import-submodules
+                     lisp-package lisp-package-supplied-p
+                     reload safety continue-ignoring-errors silent)
   (check-type pymodule-name string) ; is there a way to (declaim (macrotype ...?
   ;; (check-type as (or nil string)) ;; this doesn't work!
   (check-type lisp-package string)
@@ -222,7 +244,7 @@ Arguments:
     (if package
         (if reload
             (delete-package package)
-            (return-from defpymodule "Package already exists."))))
+            (return-from defpymodule* "Package already exists."))))
 
   (python-start-if-not-alive) ; Ensure python is running
 
@@ -263,36 +285,25 @@ Arguments:
                                                      (string= "None" fun-names)))
                                             (setq fun-names ())
                                             fun-names))))
-              ;; In order to create a DEFUN form, we need FUN-SYMBOL
-              ;; inside the LISP-PACKAGE package at compiler time.
-              ;; However, the effects of MAKE-PACKAGE form followed by DEFPACKAGE
-              ;; seem to be implementation dependent. Things work in SBCL, CCL and ECL.
-              ;; But ABCL refuses to replace the existing package defined by MAKE-PACKAGE.
-              ;; Therefore, we need an explicit EXPORT statement in DEFPYFUN. And we also
-              ;; do away with DEFPACKAGE deeming it redundant.
-              `(progn
-                 (defpackage ,lisp-package
-                   (:use)
-                   (:export ,@fun-symbols))
-                 ,@(if import-submodules
-                       (defpysubmodules package-in-python
-                         lisp-package
-                         continue-ignoring-errors))
-                 ,@(iter (for fun-name in fun-names)
-                     (for fun-symbol in fun-symbols)
-                     (collect
-                         (let* ((*called-from-defpymodule* t)
-                                (*function-reload-string*
-                                  (function-reload-string :pymodule-name pymodule-name
-                                                          :lisp-package lisp-package
-                                                          :fun-name fun-name)))
-                           (macroexpand-1 `(defpyfun
-                                               ,fun-name ,package-in-python
-                                             :lisp-package
-                                             ,exporting-package
-                                             :lisp-fun-name ,(format nil "~A" fun-symbol)
-                                             :safety ,safety)))))
-                 t))
+              (export fun-symbols exporting-package)
+              (if import-submodules
+                  (defpysubmodules package-in-python
+                    lisp-package
+                    continue-ignoring-errors)
+                  (iter (for fun-name in fun-names)
+                        (for fun-symbol in fun-symbols)
+                        (let* ((*called-from-defpymodule* t)
+                               (*function-reload-string*
+                                 (function-reload-string :pymodule-name pymodule-name
+                                                         :lisp-package lisp-package
+                                                         :fun-name fun-name)))
+                          (defpyfun* fun-name
+                            package-in-python
+                            fun-name
+                            (format nil "~A" fun-symbol)
+                            exporting-package
+                            safety))))
+              t)
           (continue-ignoring-errors nil)))))) ; (defpymodule "torch" t) is one test case
 
 (defmacro defpyfuns (&rest args)
