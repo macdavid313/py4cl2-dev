@@ -1,6 +1,6 @@
 # py4cl2
 
-[Last update: v2.7.0]
+[Last update: v2.7.1]
 
 ## Introduction
 
@@ -32,6 +32,13 @@ This shouldn't be a bottleneck if you're planning to run "long" processes in pyt
 <!-- ![slime-demo-image](readme_slime.png) -->
 
 <br/>
+
+## Upcoming Sources of Possible Code Breakage
+
+(whenever I find the time)
+
+- Extensible type conversion from python to lisp: to allow usage of something like cl-custom-hash-table, or dense-arrays, or one user wanting python lists to be converted to lisp vectors, while another user wanting them to be converted to lisp lists.
+  - So, avoid using `*arrayfiers*` and `*array-type*`; there'd likely come a more general version of these things.
 
 ### Changes over py4cl
 

@@ -6,7 +6,11 @@ Detailed documentation is available on [github-pages](https://digikar99.github.i
 
 # Releases
 
-Check the [Releases](https://github.com/digikar99/py4cl2/releases) section.
+Check the [Releases](https://github.com/digikar99/py4cl2/releases) section. That said, if you are looking for stability, look at py4cl and not py4cl2, at least not in 2021. You may use py4cl2 on use-and-throw projects, or use it without using "edgy" features (not yet classified).
+
+# Contribution and PRs
+
+Please test using [py4cl2-tests](https://github.com/digikar99/py4cl2-tests).
 
 # Quick Demonstration
 

@@ -99,8 +99,7 @@ Arguments:
   (check-type fun-name string)
   (check-type lisp-fun-name string)
   (check-type lisp-package package)
-  ;; (check-type pymodule-name string) ;; (or nil string)
-  ;; (check-type as string) ;; (or nil string)?
+  (check-type pymodule-name (or null string))
   (python-start-if-not-alive)
   (raw-pyexec "import inspect")
   ;; (format t "*called-from-defpymodule* ~D in ~D~%"
@@ -222,7 +221,6 @@ Arguments:
   SAFETY: value of safety to pass to defpyfun; see defpyfun
   SILENT: prints \"status\" lines when NIL"
   (check-type pymodule-name string) ; is there a way to (declaim (macrotype ...?
-  ;; (check-type as (or nil string)) ;; this doesn't work!
   (check-type lisp-package string)
 
   (python-start-if-not-alive)           ; Ensure python is running
@@ -237,7 +235,7 @@ Arguments:
         (pymodule-import-string pymodule-name lisp-package)
       (raw-pyexec package-import-string)
       (when (and reload (not silent))
-        (format t "~&Defining ~D for accessing python package ~D...~%"
+        (format t "~&Defining ~A for accessing python package ~A..~%"
                 lisp-package
                 package-in-python))
       (handler-bind ((pyerror (lambda (e)
