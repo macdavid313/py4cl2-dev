@@ -194,6 +194,13 @@ Arguments:
 ;;; And the other is the name of the package inside lisp
 ;;; The relation between the two being that the lisp name should
 ;;; pythonize to the python name.
+
+;;; A discussion pertaining to the side-effects here is at
+;;;   https://github.com/digikar99/py4cl2/pull/13
+;;; A prime reason for doing the work during macroexpansion is so
+;;; that the further loading of the fasls generated from files containing
+;;; the defpymodule forms is (much) quicker.
+
 (defmacro defpymodule (pymodule-name &optional (import-submodules nil)
                        &key
                          (lisp-package (lispify-name pymodule-name) lisp-package-supplied-p)
@@ -211,20 +218,14 @@ Arguments:
   IMPORT-SUBMODULES: leave nil for purposes of speed, if you won't use the
     submodules
   LISP-PACKAGE: lisp package, in which to intern (and export) the callables
-  RELOAD: whether to redefine and reimport
+  RELOAD: redefine the LISP-PACKAGE if T
   SAFETY: value of safety to pass to defpyfun; see defpyfun
   SILENT: prints \"status\" lines when NIL"
   (check-type pymodule-name string) ; is there a way to (declaim (macrotype ...?
   ;; (check-type as (or nil string)) ;; this doesn't work!
   (check-type lisp-package string)
 
-  (let ((package (find-package lisp-package))) ;; reload
-    (if package
-        (if reload
-            (delete-package package)
-            (return-from defpymodule "Package already exists."))))
-
-  (python-start-if-not-alive) ; Ensure python is running
+  (python-start-if-not-alive)           ; Ensure python is running
 
   (raw-pyexec "import inspect")
   (raw-pyexec "import pkgutil")
@@ -235,9 +236,10 @@ Arguments:
     (multiple-value-bind (package-import-string package-in-python)
         (pymodule-import-string pymodule-name lisp-package)
       (raw-pyexec package-import-string)
-      (unless silent (format t "~&Defining ~D for accessing python package ~D...~%"
-                             lisp-package
-                             package-in-python))
+      (when (and reload (not silent))
+        (format t "~&Defining ~D for accessing python package ~D...~%"
+                lisp-package
+                package-in-python))
       (handler-bind ((pyerror (lambda (e)
                                 (if continue-ignoring-errors
                                     (invoke-restart 'continue-ignoring-errors)
@@ -246,7 +248,8 @@ Arguments:
             (let* ((fun-names (pyeval "tuple(name for name, fn in inspect.getmembers("
                                       package-in-python
                                       ", callable) if name[0] != '_')"))
-                   ;; Get the package name by passing through reader, rather than using STRING-UPCASE
+                   ;; Get the package name by passing through reader,
+                   ;; rather than using STRING-UPCASE
                    ;; so that the result reflects changes to the readtable
                    ;; Note that the package doesn't use CL to avoid shadowing.
                    (exporting-package
@@ -270,7 +273,9 @@ Arguments:
               ;; But ABCL refuses to replace the existing package defined by MAKE-PACKAGE.
               ;; Therefore, we need an explicit EXPORT statement in DEFPYFUN. And we also
               ;; do away with DEFPACKAGE deeming it redundant.
-              `(progn
+              `(,@(if reload
+                      `(progn)
+                      `(unless (find-package ,lisp-package)))
                  (defpackage ,lisp-package
                    (:use)
                    (:export ,@fun-symbols))
