@@ -73,6 +73,8 @@ def _py4cl_non_callable(ele):
   "String pyexec-ed at the start of a DEFPYFUN when SAFETY is T.")
 (defvar-doc *lisp-package-supplied-p*
   "Internal variable used by PYMODULE-IMPORT-STRING to determine the import string.")
+(defvar-doc *defpymodule-reload*
+  "If NIL, DEFPYFUN avoids compiling the function during macroexpansion.")
 
 (defmacro defpyfun (fun-name &optional pymodule-name
                     &key
@@ -127,11 +129,31 @@ Arguments:
                           `(python-start-if-not-alive)
                           (if *called-from-defpymodule*
                               `(raw-pyexec ,*function-reload-string*)
-                              `(raw-pyexec ,(function-reload-string :pymodule-name pymodule-name
+                              `(raw-pyexec ,(function-reload-string :pymodule-name
+                                                                    pymodule-name
                                                                     :fun-name fun-name
                                                                     :as as)))))
                    ,(second pass-list))
-                 ,(if *called-from-defpymodule* `(export ',fun-symbol ,lisp-package)))))
+                 ,(when *called-from-defpymodule* `(export ',fun-symbol ,lisp-package)))))
+        ;; This form is for better handling :reload nil option in defpymodule
+        (when (and *called-from-defpymodule*
+                   ;; We have been asked not to reload the package and functions
+                   (not *defpymodule-reload*)
+                   ;; But, the function is not even defined yet!
+                   (not (fboundp fun-symbol)))
+          (restart-case
+              ;; TODO: Should we provide an option to not muffle?
+              (handler-bind ((style-warning #'muffle-warning))
+                (compile fun-symbol
+                         `(lambda ,parameter-list
+                            ,(or fun-doc "Python function")
+                            ,(first pass-list)
+                            ,(when safety
+                               (if (builtin-p pymodule-name)
+                                   `(python-start-if-not-alive)
+                                   `(raw-pyexec ,*function-reload-string*))))))
+            (continue-ignoring-errors nil))
+          (export fun-symbol lisp-package))
         #-ecl
         `(restart-case
              ,common-code
@@ -263,7 +285,8 @@ Arguments:
                                                  (or (string= "()" fun-names)
                                                      (string= "None" fun-names)))
                                             (setq fun-names ())
-                                            fun-names))))
+                                            fun-names)))
+                   (*defpymodule-reload* reload))
               ;; In order to create a DEFUN form, we need FUN-SYMBOL
               ;; inside the LISP-PACKAGE package at compiler time.
               ;; However, the effects of MAKE-PACKAGE form followed by DEFPACKAGE
