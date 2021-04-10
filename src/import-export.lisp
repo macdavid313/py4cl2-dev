@@ -134,7 +134,8 @@ Arguments:
                                                                     :fun-name fun-name
                                                                     :as as)))))
                    ,(second pass-list))
-                 ,(when *called-from-defpymodule* `(export ',fun-symbol ,lisp-package)))))
+                 ,(when *called-from-defpymodule* `(export ',fun-symbol
+                                                           ,(package-name lisp-package))))))
         ;; This form is for better handling :reload nil option in defpymodule
         (when (and *called-from-defpymodule*
                    ;; We have been asked not to reload the package and functions
@@ -211,6 +212,9 @@ Arguments:
       (pymodule-import-string pymodule-name lisp-package)
       (concatenate 'string "from " pymodule-name " import " fun-name " as " as)))
 
+(defun ensure-package (package-name &rest args)
+  (or (find-package package-name) (apply #'make-package package-name args)))
+
 ;;; One we need is the name of the package inside python
 ;;; And the other is the name of the package inside lisp
 ;;; The relation between the two being that the lisp name should
@@ -272,8 +276,7 @@ Arguments:
                    ;; rather than using STRING-UPCASE
                    ;; so that the result reflects changes to the readtable
                    ;; Note that the package doesn't use CL to avoid shadowing.
-                   (exporting-package
-                     (or (find-package lisp-package) (make-package lisp-package :use '())))
+                   (exporting-package (ensure-package lisp-package :use '()))
                    (fun-symbols (mapcar (lambda (pyfun-name)
                                           (fun-symbol pyfun-name
                                                       (concatenate 'string
@@ -286,7 +289,8 @@ Arguments:
                                                      (string= "None" fun-names)))
                                             (setq fun-names ())
                                             fun-names)))
-                   (*defpymodule-reload* reload))
+                   (*defpymodule-reload* reload)
+                   (package-exists-p   (gensym "PACKAGE-EXISTS-P")))
               ;; In order to create a DEFUN form, we need FUN-SYMBOL
               ;; inside the LISP-PACKAGE package at compiler time.
               ;; However, the effects of MAKE-PACKAGE form followed by DEFPACKAGE
@@ -294,31 +298,38 @@ Arguments:
               ;; But ABCL refuses to replace the existing package defined by MAKE-PACKAGE.
               ;; Therefore, we need an explicit EXPORT statement in DEFPYFUN. And we also
               ;; do away with DEFPACKAGE deeming it redundant.
-              `(,@(if reload
-                      `(progn)
-                      `(unless (find-package ,lisp-package)))
-                 (defpackage ,lisp-package
-                   (:use)
-                   (:export ,@fun-symbols))
-                 ,@(if import-submodules
-                       (defpysubmodules package-in-python
-                         lisp-package
-                         continue-ignoring-errors))
-                 ,@(iter (for fun-name in fun-names)
-                     (for fun-symbol in fun-symbols)
-                     (collect
-                         (let* ((*called-from-defpymodule* t)
-                                (*function-reload-string*
-                                  (function-reload-string :pymodule-name pymodule-name
-                                                          :lisp-package lisp-package
-                                                          :fun-name fun-name)))
-                           (macroexpand-1 `(defpyfun
-                                               ,fun-name ,package-in-python
-                                             :lisp-package
-                                             ,exporting-package
-                                             :lisp-fun-name ,(format nil "~A" fun-symbol)
-                                             :safety ,safety)))))
-                 t))
+              `(progn
+                 (defvar ,package-exists-p (find-package ,lisp-package))
+                 ;; We need the package to even read the next form!
+                 ;; But we can only know if or not the package exists beforehand
+                 ;; before creating it! After creating it, it definitely exists!
+                 (eval-when (:compile-toplevel :load-toplevel :execute)
+                   (ensure-package ,lisp-package :use '()))
+                 (,@(if reload
+                        `(progn)
+                        `(unless ,package-exists-p))
+                  (defpackage ,lisp-package
+                    (:use)
+                    (:export ,@(mapcar #'symbol-name fun-symbols)))
+                  ,@(if import-submodules
+                        (defpysubmodules package-in-python
+                          lisp-package
+                          continue-ignoring-errors))
+                  ,@(iter (for fun-name in fun-names)
+                      (for fun-symbol in fun-symbols)
+                      (collect
+                          (let* ((*called-from-defpymodule* t)
+                                 (*function-reload-string*
+                                   (function-reload-string :pymodule-name pymodule-name
+                                                           :lisp-package lisp-package
+                                                           :fun-name fun-name)))
+                            (macroexpand-1 `(defpyfun
+                                                ,fun-name ,package-in-python
+                                              :lisp-package
+                                              ,exporting-package
+                                              :lisp-fun-name ,(format nil "~A" fun-symbol)
+                                              :safety ,safety)))))
+                  t)))
           (continue-ignoring-errors nil)))))) ; (defpymodule "torch" t) is one test case
 
 (defmacro defpyfuns (&rest args)
