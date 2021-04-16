@@ -247,12 +247,11 @@ Arguments:
   CACHE: if non-NIL, produces the DEFPACKAGE and DEFUN forms at macroexpansion time
     to speed-up future reloads of the system
   LISP-PACKAGE: lisp package, in which to intern (and export) the callables
-  RECOMPILE-ON-CHANGE: the ASDF system to recompile if the python version of
+  RECOMPILE-ON-CHANGE: the name of the ASDF system to recompile if the python version of
     PYMODULE-NAME changes; this only has effect if CACHE is non-NIL
   RELOAD: redefine the LISP-PACKAGE if T
   SAFETY: value of safety to pass to defpyfun; see defpyfun
   SILENT: prints \"status\" lines when NIL"
-  (declare (ignore recompile-on-change))
   (let ((*defpymodule-cache* cache))
     (if cache                
         (handler-bind ((pyerror (lambda (e)
@@ -271,6 +270,10 @@ Arguments:
                     silent)
                 `(progn
                    ,package-exists-p-form
+                   ,(when recompile-on-change
+                      `(unless (string= ,(pyeval pymodule-name ".__version__")
+                                        (pyeval ,pymodule-name ".__version__"))
+                         (asdf:compile-system ,recompile-on-change :force t :verbose nil)))
                    (eval-when (:compile-toplevel :load-toplevel :execute)
                      ,ensure-package-form)
                    ,defpackage-form))
