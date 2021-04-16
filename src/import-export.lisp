@@ -73,31 +73,47 @@ def _py4cl_non_callable(ele):
   "String pyexec-ed at the start of a DEFPYFUN when SAFETY is T.")
 (defvar-doc *lisp-package-supplied-p*
   "Internal variable used by PYMODULE-IMPORT-STRING to determine the import string.")
-(defvar-doc *defpymodule-reload*
-  "If NIL, DEFPYFUN avoids compiling the function during macroexpansion.")
+(defvar-doc *defpymodule-cache*
+  "If non-NIL, DEFPYMODULE produces the expansion during macroexpansion time.
+  Use intended for DEFPYSUBMODULES.")
 
-(defmacro defpyfun (fun-name &optional pymodule-name
+(defmacro defpyfun (fun-name
+                    &optional pymodule-name
                     &key
                       (as fun-name)
+                      (cache t)
                       (lisp-fun-name (lispify-name as))
                       (lisp-package *package*)
                       (safety t))
-  "Defines a function which calls python
+  "
+Defines a function which calls python
 Example
   (py4cl:pyexec \"import math\")
   (py4cl:defpyfun \"math.sqrt\")
   (math.sqrt 42) -> 6.4807405
 
 Arguments:
+
   FUN-NAME: name of the function in python, before import
   PYMODULE-NAME: name of the module containing FUN-NAME
+
   AS: name of the function in python, after import
+  CACHE: if non-NIL, constructs the function body at macroexpansion time
   LISP-FUN-NAME: name of the lisp symbol to which the function is bound*
   LISP-PACKAGE: package (not its name) in which LISP-FUN-NAME will be interned
   SAFETY: if T, adds an additional line in the function asking to import the
     package or function, so that the function works even after PYSTOP is called.
     However, this increases the overhead of stream communication, and therefore,
-    can reduce speed."
+    can reduce speed.
+  "
+  (if cache
+      (defpyfun* fun-name pymodule-name
+        as lisp-fun-name lisp-package safety)
+      `(eval-when (:compile-toplevel :load-toplevel :execute)
+         (eval (defpyfun* ',fun-name ',pymodule-name
+                 ',as ',lisp-fun-name ',lisp-package ',safety)))))
+
+(defun defpyfun* (fun-name pymodule-name as lisp-fun-name lisp-package safety)
   (check-type fun-name string)
   (check-type lisp-fun-name string)
   (check-type lisp-package package)
@@ -133,28 +149,7 @@ Arguments:
                                                                     pymodule-name
                                                                     :fun-name fun-name
                                                                     :as as)))))
-                   ,(second pass-list))
-                 ,(when *called-from-defpymodule* `(export ',fun-symbol
-                                                           ,(package-name lisp-package))))))
-        ;; This form is for better handling :reload nil option in defpymodule
-        (when (and *called-from-defpymodule*
-                   ;; We have been asked not to reload the package and functions
-                   (not *defpymodule-reload*)
-                   ;; But, the function is not even defined yet!
-                   (not (fboundp fun-symbol)))
-          (restart-case
-              ;; TODO: Should we provide an option to not muffle?
-              (handler-bind ((style-warning #'muffle-warning))
-                (compile fun-symbol
-                         `(lambda ,parameter-list
-                            ,(or fun-doc "Python function")
-                            ,(first pass-list)
-                            ,(when safety
-                               (if (builtin-p pymodule-name)
-                                   `(python-start-if-not-alive)
-                                   `(raw-pyexec ,*function-reload-string*))))))
-            (continue-ignoring-errors nil))
-          (export fun-symbol lisp-package))
+                   ,(second pass-list)))))
         #-ecl
         `(restart-case
              ,common-code
@@ -188,13 +183,15 @@ Arguments:
                  ;; therefore returns NIL.
                  (ignore-errors (pyeval "type(" submodule-fullname
                                         ") == type(pkgutil)")))
-        (collect (let ((*is-submodule* t))
-                   (macroexpand-1
-                    `(defpymodule ,submodule-fullname
-                         ,has-submodules
-                         :lisp-package ,(concatenate 'string lisp-package "."
-                                                     (lispify-name submodule))
-                         :continue-ignoring-errors ,continue-ignoring-errors))))))))
+        (let ((*is-submodule* t))
+          (collect
+              (macroexpand-1
+               `(defpymodule ,submodule-fullname
+                    ,has-submodules
+                    :cache ,*defpymodule-cache*
+                    :lisp-package ,(concatenate 'string lisp-package "."
+                                                (lispify-name submodule))
+                    :continue-ignoring-errors ,continue-ignoring-errors))))))))
 
 (declaim (ftype (function (string string)) pymodule-import-string))
 (defun pymodule-import-string (pymodule-name lisp-package)
@@ -226,28 +223,94 @@ Arguments:
 ;;; that the further loading of the fasls generated from files containing
 ;;; the defpymodule forms is (much) quicker.
 
-(defmacro defpymodule (pymodule-name &optional (import-submodules nil)
-                       &key
-                         (lisp-package (lispify-name pymodule-name) lisp-package-supplied-p)
-                         (reload t) (safety t)
+(defmacro defpymodule (pymodule-name
+                       &optional (import-submodules nil)
+                       &key (cache t)
                          (continue-ignoring-errors t)
+                         (lisp-package (lispify-name pymodule-name) lisp-package-supplied-p)
+                         (reload t)
+                         (recompile-on-change nil)
+                         (safety t)
                          (silent *defpymodule-silent-p*))
-  "Import a python module (and its submodules) lisp-package Lisp package(s).
+  "
+Import a python module (and its submodules) as a lisp-package(s).
 Example:
   (py4cl:defpymodule \"math\" :lisp-package \"M\")
   (m:sqrt 4)   ; => 2.0
-\"Package already exists.\" is returned if the package exists and :RELOAD
-is NIL.
+
 Arguments:
+
   PYMODULE-NAME: name of the module in python, before importing
   IMPORT-SUBMODULES: leave nil for purposes of speed, if you won't use the
     submodules
+
+  CACHE: if non-NIL, produces the DEFPACKAGE and DEFUN forms at macroexpansion time
+    to speed-up future reloads of the system
   LISP-PACKAGE: lisp package, in which to intern (and export) the callables
+  RECOMPILE-ON-CHANGE: the ASDF system to recompile if the python version of
+    PYMODULE-NAME changes; this only has effect if CACHE is non-NIL
   RELOAD: redefine the LISP-PACKAGE if T
   SAFETY: value of safety to pass to defpyfun; see defpyfun
   SILENT: prints \"status\" lines when NIL"
+  (declare (ignore recompile-on-change))
+  (let ((*defpymodule-cache* cache))
+    (if cache                
+        (handler-bind ((pyerror (lambda (e)
+                                  (if continue-ignoring-errors
+                                      (invoke-restart 'continue-ignoring-errors)
+                                      e))))
+          (restart-case
+              (multiple-value-bind (package-exists-p-form ensure-package-form defpackage-form)
+                  (defpymodule* pymodule-name
+                    import-submodules
+                    lisp-package
+                    lisp-package-supplied-p
+                    reload
+                    safety
+                    continue-ignoring-errors
+                    silent)
+                `(progn
+                   ,package-exists-p-form
+                   (eval-when (:compile-toplevel :load-toplevel :execute)
+                     ,ensure-package-form)
+                   ,defpackage-form))
+            (continue-ignoring-errors nil)))      
+        `(eval-when (:compile-toplevel :load-toplevel :execute)
+           (eval (cons 'progn
+                       (multiple-value-list
+                        (defpymodule* ',pymodule-name
+                          ',import-submodules
+                          ',lisp-package
+                          ',lisp-package-supplied-p
+                          ',reload
+                          ',safety
+                          ',continue-ignoring-errors
+                          ',silent))))))))  ; (defpymodule "torch" t) is one test case
+
+
+(defun defpymodule* (pymodule-name import-submodules
+                     lisp-package lisp-package-supplied-p
+                     reload safety continue-ignoring-errors silent)
+  "
+Returns multiple values:
+- a DEFVAR form to capture the existence of package before ensuring it
+- an ENSURE-PACKAGE form
+- the actual form that defines the package and functions
+  "
   (check-type pymodule-name string) ; is there a way to (declaim (macrotype ...?
   (check-type lisp-package string)
+
+  ;; This form is necessary, until
+  ;; (i)  slime displays case sensitive names
+  ;; (ii) case sensitive lisp becomes mainstream
+  ;; Because, until then, for "convenience", multiple python names
+  ;;   python_name PythonName Python_name pythonName
+  ;; will map to the same lisp name
+  (let ((package (find-package lisp-package))) ;; reload
+    (if package
+        (if reload
+            (delete-package package)
+            (return-from defpymodule* "Package already exists."))))
 
   (python-start-if-not-alive)           ; Ensure python is running
 
@@ -264,53 +327,42 @@ Arguments:
         (format t "~&Defining ~A for accessing python package ~A..~%"
                 lisp-package
                 package-in-python))
-      (handler-bind ((pyerror (lambda (e)
-                                (if continue-ignoring-errors
-                                    (invoke-restart 'continue-ignoring-errors)
-                                    e))))
-        (restart-case
-            (let* ((fun-names (pyeval "tuple(name for name, fn in inspect.getmembers("
-                                      package-in-python
-                                      ", callable) if name[0] != '_')"))
-                   ;; Get the package name by passing through reader,
-                   ;; rather than using STRING-UPCASE
-                   ;; so that the result reflects changes to the readtable
-                   ;; Note that the package doesn't use CL to avoid shadowing.
-                   (exporting-package (ensure-package lisp-package :use '()))
-                   (fun-symbols (mapcar (lambda (pyfun-name)
-                                          (fun-symbol pyfun-name
-                                                      (concatenate 'string
-                                                                   package-in-python
-                                                                   "."
-                                                                   pyfun-name)
-                                                      lisp-package))
-                                        (if (and (stringp fun-names)
-                                                 (or (string= "()" fun-names)
-                                                     (string= "None" fun-names)))
-                                            (setq fun-names ())
-                                            fun-names)))
-                   (*defpymodule-reload* reload)
-                   (package-exists-p   (gensym "PACKAGE-EXISTS-P")))
-              ;; In order to create a DEFUN form, we need FUN-SYMBOL
-              ;; inside the LISP-PACKAGE package at compiler time.
-              ;; However, the effects of MAKE-PACKAGE form followed by DEFPACKAGE
-              ;; seem to be implementation dependent. Things work in SBCL, CCL and ECL.
-              ;; But ABCL refuses to replace the existing package defined by MAKE-PACKAGE.
-              ;; Therefore, we need an explicit EXPORT statement in DEFPYFUN. And we also
-              ;; do away with DEFPACKAGE deeming it redundant.
-              `(progn
-                 (defvar ,package-exists-p (find-package ,lisp-package))
-                 ;; We need the package to even read the next form!
-                 ;; But we can only know if or not the package exists beforehand
-                 ;; before creating it! After creating it, it definitely exists!
-                 (eval-when (:compile-toplevel :load-toplevel :execute)
-                   (ensure-package ,lisp-package :use '()))
-                 (,@(if reload
+      (let* ((fun-names (pyeval "tuple(name for name, fn in inspect.getmembers("
+                                package-in-python
+                                ", callable) if name[0] != '_')"))
+             ;; Get the package name by passing through reader,
+             ;; rather than using STRING-UPCASE
+             ;; so that the result reflects changes to the readtable
+             ;; Note that the package doesn't use CL to avoid shadowing.
+             (exporting-package (ensure-package lisp-package :use '()))
+             (fun-symbols (mapcar (lambda (pyfun-name)
+                                    (fun-symbol pyfun-name
+                                                (concatenate 'string
+                                                             package-in-python
+                                                             "."
+                                                             pyfun-name)
+                                                lisp-package))
+                                  (if (and (stringp fun-names)
+                                           (or (string= "()" fun-names)
+                                               (string= "None" fun-names)))
+                                      (setq fun-names ())
+                                      fun-names)))
+             (package-exists-p (gensym "PACKAGE-EXISTS-P"))
+             (fun-symbol-names (mapcar #'symbol-name fun-symbols)))
+        (values `(defvar ,package-exists-p (find-package ,lisp-package))
+                ;; We need the package to even read the next form!
+                ;; But we can only know if or not the package exists beforehand
+                ;; before creating it! After creating it, it definitely exists!
+                `(uiop:ensure-package ,lisp-package
+                                      :use ()
+                                      :export ',fun-symbol-names)
+                ;; `(ensure-package  :use '())
+                `(,@(if reload
                         `(progn)
                         `(unless ,package-exists-p))
                   (defpackage ,lisp-package
                     (:use)
-                    (:export ,@(mapcar #'symbol-name fun-symbols)))
+                    (:export ,@fun-symbol-names))
                   ,@(if import-submodules
                         (defpysubmodules package-in-python
                           lisp-package
@@ -323,14 +375,13 @@ Arguments:
                                    (function-reload-string :pymodule-name pymodule-name
                                                            :lisp-package lisp-package
                                                            :fun-name fun-name)))
-                            (macroexpand-1 `(defpyfun
-                                                ,fun-name ,package-in-python
-                                              :lisp-package
-                                              ,exporting-package
-                                              :lisp-fun-name ,(format nil "~A" fun-symbol)
-                                              :safety ,safety)))))
-                  t)))
-          (continue-ignoring-errors nil)))))) ; (defpymodule "torch" t) is one test case
+                            (defpyfun* fun-name
+                              package-in-python
+                              fun-name
+                              (format nil "~A" fun-symbol)
+                              exporting-package
+                              safety))))
+                  t))))))
 
 (defmacro defpyfuns (&rest args)
   "Each ARG is supposed to be a 2-3 element list of
