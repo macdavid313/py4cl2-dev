@@ -381,7 +381,7 @@ Returns multiple values:
                             (defpyfun* fun-name
                               package-in-python
                               fun-name
-                              (format nil "~A" fun-symbol)
+                              (symbol-name fun-symbol)
                               exporting-package
                               safety))))
                   t))))))
