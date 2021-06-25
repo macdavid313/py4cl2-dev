@@ -46,8 +46,8 @@
    #:python-setattr)
   (:export ; config 
    #:*config*
-   #:*array-type*
-   #:*arrayfiers*
+   #:*lispifiers*
+   #:with-lispifiers
    #:initialize
    #:save-config
    #:load-config

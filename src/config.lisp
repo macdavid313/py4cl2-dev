@@ -4,12 +4,48 @@
 This variable should be manipulated using CONFIG-VAR and (SETF CONFIG-VAR).")
 ;; Refer initialize function to note which variables are included under *config*
 
-(defvar *array-type* :cl)
+(defparameter *lispifiers*
+  ()
+  ;; Python to Lisp data transfer is the bottleneck :/
+  "Each entry in the alist *LISPIFIERS* maps from a lisp-type to
+a single-argument lisp function. This function takes as input the \"default\" lisp
+objects and is expected to appropriately parse it to the corresponding lisp object.
 
-(defvar *arrayfiers* (list :cl #'identity)
-  "(GETF *ARRAYFIERS* *ARRAY-TYPE*) should return a single argument function that converts the ARRAY into the required type.")
+NOTE: This is a new feature and hence unstable; recommended to avoid in production code.")
 
-(setf (documentation '*array-type* 'variable) (documentation '*arrayfiers* 'variable))
+(defmacro with-lispifiers ((&rest overriding-lispifiers) &body body)
+  "Each entry of OVERRIDING-LISPIFIERS is a two-element list of the form
+  (TYPE LISPIFIER)
+Here, TYPE is unevaluated, while LISPIFIER will be evaluated; the LISPIFIER is expected
+to take a default-lispified object (see lisp-python types translation table in docs)
+and return the appropriate object user expects.
+
+For example,
+
+  (PYEVAL \"[1, 2, 3]\") ;=> #(1 2 3) ; the default lispified object
+  (with-lispifiers ((vector (lambda (x) (coerce (print x) 'list))))
+           (print (pyeval \"[1,2,3]\"))
+           (print (pyeval 5)))
+  ; #(1 2 3) ; default lispified object
+  ; (1 2 3)  ; coerced to LIST by the lispifier
+  ; 5        ; lispifier uncalled for non-VECTOR
+  5
+
+NOTE: This is a new feature and hence unstable; recommended to avoid in production code."
+  `(let ((*lispifiers* (list* ,@(loop :for (type lispifier) :in overriding-lispifiers
+                                      :collect `(cons ',type ,lispifier))
+                              *lispifiers*)))
+     ,@body))
+
+;;; FIXME: Currently unused, probably requires fixes in DEFPYMODULE's CONTINUE-IGNORING-ERRORs
+(define-condition no-lispifier-found (condition)
+  ())
+
+(defun customize (object)
+  (loop :for (type . lispifier) :in *lispifiers*
+        :if (typep object type)
+          :do (return-from customize (funcall lispifier object)))
+  object)
 
 #.(progn
     (alexandria:define-constant +py4cl2-config-path+

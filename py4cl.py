@@ -195,14 +195,14 @@ lispifiers = {
 	int        : str,
 	float      : lambda x : str(x).replace("e", "d") if str(x).find("e") != -1 else str(x)+"d0",
 	complex    : lambda x: "#C(" + lispify(x.real) + " " + lispify(x.imag) + ")",
-	list       : lambda x: "#.(cl:funcall (getf py4cl2:*arrayfiers* py4cl2:*array-type*) #(" + " ".join(lispify(elt) for elt in x) + "))",
-	tuple      : lambda x: "\"()\"" if len(x)==0 else "(" + " ".join(lispify(elt) for elt in x) + ")",
+	list       : lambda x: "#(" + " ".join(lispify(elt) for elt in x) + ")",
+	tuple      : lambda x: "\"()\"" if len(x)==0 else "(quote (" + " ".join(lispify(elt) for elt in x) + "))",
 	# Note: With dict -> hash table, use :test equal so that string keys work as expected
 	# TODO: Should test be equalp? Should users get an option to choose the test functions?
 	# Should we avoid using cl:make-hash-table and use custom hash-tables instead?
 	dict       : lambda x: "#.(let ((table (make-hash-table :test (quote cl:equal)))) " + " ".join("(setf (gethash (quote {}) table) (quote {}))".format(lispify(key), lispify(value)) for key, value in x.items()) + " table)",
 	str        : lambda x: "\"" + x.replace("\\", "\\\\").replace("\"", "\\\"")  + "\"",
-	type       : lambda x: python_to_lisp_type[x],
+	type       : lambda x: "(quote " + python_to_lisp_type[x] + ")",
 	Symbol     : str,
 	UnknownLispObject : lambda x: "#.(py4cl2::lisp-object {})".format(x.handle),
 	# there is another lispifier just below
@@ -261,8 +261,8 @@ if numpy_is_installed: #########################################################
 			with open(numpy_pickle_location, "wb") as f:
 				numpy.save(f, obj, allow_pickle = True)
 
-			array = "(numpy-file-format:load-array \"" + numpy_pickle_location + "\")"
-			return "#.(cl:funcall (getf py4cl2:*arrayfiers* py4cl2:*array-type*) {0})".format(array)
+			array = "#.(numpy-file-format:load-array \"" + numpy_pickle_location + "\")"
+			return array
 		if obj.ndim == 0:
 			# Convert to scalar then lispify
 			return lispify(numpy.asscalar(obj))
@@ -270,9 +270,9 @@ if numpy_is_installed: #########################################################
 		array = "(cl:make-array " + str(obj.size) + " :initial-contents (cl:list " \
 			+ " ".join(map(lispify, numpy.ndarray.flatten(obj))) + ") :element-type " \
 			+ numpy_to_cl_type(obj.dtype) + ")"
-		array = "(cl:make-array (cl:quote " + lispify(obj.shape) + ") :element-type " \
+		array = "#.(cl:make-array (cl:quote " + lispify(obj.shape) + ") :element-type " \
 			+ numpy_to_cl_type(obj.dtype) + " :displaced-to " + array + " :displaced-index-offset 0)"
-		return "#.(cl:funcall (getf py4cl2:*arrayfiers* py4cl2:*array-type*) {0})".format(array)
+		return array
 
 	# Register the handler to convert Python -> Lisp strings
 	lispifiers.update({
@@ -445,15 +445,21 @@ if numpy_is_installed:
 # Handle fractions (RATIO type)
 # Lisp will pass strings containing "_py4cl_fraction(n,d)"
 # where n and d are integers.
-try:
-	import fractions
-	eval_globals["_py4cl_fraction"] = fractions.Fraction
 
-	# Turn a Fraction into a Lisp RATIO
-	lispifiers[fractions.Fraction] = str
-except:
-	# In python2, ensure that fractions are converted to floats
-	eval_globals["_py4cl_fraction"] = lambda a,b : float(a)/b
+import fractions
+eval_globals["_py4cl_fraction"] = fractions.Fraction
+
+# Turn a Fraction into a Lisp RATIO
+lispifiers[fractions.Fraction] = str
+
+# Lisp-side customize-able lispifiers
+# FIXME: Is there a better way than going to each of the above and doing manually?
+old_lispifiers = lispifiers.copy()
+for key in lispifiers.keys():
+	lispifiers[key] = eval(
+		"""
+lambda x: "#.(py4cl2::customize " + old_lispifiers[{0}](x) + ")"
+""".format(("" if key.__module__ == "builtins" or key.__module__ == "__main__" else key.__module__ + ".") + key.__name__ if key.__name__ != "NoneType" else "type(None)"))
 
 async_results = {}  # Store for function results. Might be Exception
 async_handle = itertools.count(0) # Running counter
