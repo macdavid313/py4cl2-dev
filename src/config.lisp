@@ -4,7 +4,7 @@
 This variable should be manipulated using CONFIG-VAR and (SETF CONFIG-VAR).")
 ;; Refer initialize function to note which variables are included under *config*
 
-(defparameter *lispifiers*
+(defvar *lispifiers*
   ()
   ;; Python to Lisp data transfer is the bottleneck :/
   "Each entry in the alist *LISPIFIERS* maps from a lisp-type to
@@ -13,6 +13,11 @@ objects and is expected to appropriately parse it to the corresponding lisp obje
 
 NOTE: This is a new feature and hence unstable; recommended to avoid in production code.")
 
+;;; Dubious choice, but perhaps anyways:
+;;; We let each element of *LISPIFIERS* be a cons so it can be treated as a ALIST
+;;; and possibly manipulated by user code if they so wish.
+;;; While for OVERRIDING-LISPIFIERS, we let it be a list because that is more
+;;; consistent with forms like `LET`.
 (defmacro with-lispifiers ((&rest overriding-lispifiers) &body body)
   "Each entry of OVERRIDING-LISPIFIERS is a two-element list of the form
   (TYPE LISPIFIER)
@@ -24,8 +29,8 @@ For example,
 
   (PYEVAL \"[1, 2, 3]\") ;=> #(1 2 3) ; the default lispified object
   (with-lispifiers ((vector (lambda (x) (coerce (print x) 'list))))
-           (print (pyeval \"[1,2,3]\"))
-           (print (pyeval 5)))
+    (print (pyeval \"[1,2,3]\"))
+    (print (pyeval 5)))
   ; #(1 2 3) ; default lispified object
   ; (1 2 3)  ; coerced to LIST by the lispifier
   ; 5        ; lispifier uncalled for non-VECTOR

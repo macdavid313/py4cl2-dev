@@ -1,6 +1,6 @@
 # py4cl2
 
-[Last update: v2.7.1]
+[Last update: v2.8.0]
 
 ## Introduction
 
@@ -35,10 +35,7 @@ This shouldn't be a bottleneck if you're planning to run "long" processes in pyt
 
 ## Upcoming Sources of Possible Code Breakage
 
-(whenever I find the time)
-
-- Extensible type conversion from python to lisp: to allow usage of something like cl-custom-hash-table, or dense-arrays, or one user wanting python lists to be converted to lisp vectors, while another user wanting them to be converted to lisp lists.
-  - So, avoid using `*arrayfiers*` and `*array-type*`; there'd likely come a more general version of these things.
+- `*lispifiers*` and `with-lispifiers` symbols are currently unstable introduced in this very version. Avoid using in production code until stability.
 
 ### Changes over py4cl
 
@@ -391,10 +388,15 @@ Refer `(describe 'defpyfun)`.
 
 #### defpymodule
 ```lisp
-(defpymodule pymodule-name &optional import-submodules &key
-  (lisp-package (lispify-name (or as pymodule-name)))
-  (reload t) (safety t) (continue-ignoring-errors t)
-  (silent *defpymodule-silent-p*))
+(defpymodule (pymodule-name
+              &optional (import-submodules nil)
+              &key (cache t)
+                (continue-ignoring-errors t)
+                (lisp-package (lispify-name pymodule-name) lisp-package-supplied-p)
+                (reload t)
+                (recompile-on-change nil)
+                (safety t)
+                (silent *defpymodule-silent-p*)))
 ```
 
 `lisp-package` is the name of the symbol that the package would be bound to.
@@ -438,19 +440,40 @@ you'd need to use something like [pycall].
 
 (Undocumented here.)
 
-### Interfacing with non-cl arrays
+### Custom Type Mapping
 
-#### \*arrayfiers\* and \*array-type\*
+#### \*lispifiers\*
 
-`(GETF *ARRAYFIERS* *ARRAY-TYPE*)` should return a single argument function that converts the ARRAY into the required type. An example is given in tests:
+> NOTE: This is a new feature and hence unstable; recommended to avoid in production code.
+
+Each entry in the alist `*lispifiers*` maps from a lisp-type to a single-argument lisp function. This function takes as input the "default" lisp objects and is expected to appropriately parse it to the corresponding lisp object.
+
+#### with-lispifiers
+```lisp
+(with-lispifiers ((&rest overriding-lispifiers) &body body))
+```
+
+> NOTE: This is a new feature and hence unstable; recommended to avoid in production code.
+
+Each entry of `overriding-lispifiers` is a two-element list of the form
+```
+  (type lispifier)
+```
+Here, `type` is unevaluated, while `lispifier` will be evaluated; the `lispifier` is expected
+to take a default-lispified object (see lisp-python types translation table in docs)
+and return the appropriate object user expects.
+
+For example,
 
 ```lisp
-(let ((*array-type* :numcl)
-      (*arrayfiers* (append (list :numcl #'numcl:asarray)
-                            *arrayfiers*)))
-  (destructuring-bind (a b) (pyeval "(" #(1 2 3) ", " #2A((1 2 3) (4 5 6)) ")")
-                      (assert-true (numcl:numcl-array-p a))
-                      (assert-true (numcl:numcl-array-p b))))
+  (pyeval "[1, 2, 3]") ;=> #(1 2 3) ; the default lispified object
+  (with-lispifiers ((vector (lambda (x) (coerce (print x) 'list))))
+    (print (pyeval "[1,2,3]"))
+    (print (pyeval 5)))
+  ; #(1 2 3) ; default lispified object
+  ; (1 2 3)  ; coerced to LIST by the lispifier
+  ; 5        ; lispifier uncalled for non-VECTOR
+  5
 ```
 
 ## Errors
@@ -875,16 +898,16 @@ t       True
 
 Because `pyeval` and `pyexec` evaluate strings as python
 expressions, strings passed to them are not escaped or converted as
-other types are. To pass a string to python as an argument, call `py4cl::pythonize`
+other types are. To pass a string to python as an argument, call `py4cl:pythonize`
 
 ```lisp
-CL-USER> (py4cl::pythonize "string")
+CL-USER> (py4cl:pythonize "string")
 "\"string\""
-CL-USER> (py4cl::pythonize #'identity)
+CL-USER> (py4cl:pythonize #'identity)
 "_py4cl_LispCallbackObject(1)"
-CL-USER> (py4cl::pythonize 3.0)
+CL-USER> (py4cl:pythonize 3.0)
 "3.0"
-CL-USER> (py4cl::pythonize (model)) ;; keras.Model
+CL-USER> (py4cl:pythonize (model)) ;; keras.Model
 "_py4cl_objects[1918]"
 ```
 
@@ -893,6 +916,22 @@ stored and a handle is returned to lisp. This handle can be used to
 manipulate the object, and when it is garbage collected the python
 object is also deleted (using the [trivial-garbage](https://common-lisp.net/project/trivial-garbage/)
 package).
+
+### Customizing Type-Mapping
+
+> Unstable feature
+
+Since version 2.8.0, values returned from the python process are wrapped inside a call to `py4cl2::customize`. This function essentially does the following:
+
+```lisp
+(defun customize (object)
+  (loop :for (type . lispifier) :in *lispifiers*
+        :if (typep object type)
+          :do (return-from customize (funcall lispifier object)))
+  object)
+```
+
+`with-lispifiers` provides a convenient wrapper to bind the dynamic variable `*lispifiers*` for executing its `body`.
 
 ## Name Mapping
 
