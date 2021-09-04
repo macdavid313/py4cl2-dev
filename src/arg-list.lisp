@@ -43,6 +43,7 @@
                :end (1- (length prefinal-string)))))
 
 (defun get-unique-symbol (symbol-name package-name)
+  (declare (type string symbol-name))
   (multiple-value-bind (symbol location)
       (intern symbol-name package-name)
     (declare (ignore symbol))

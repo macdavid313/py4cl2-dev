@@ -39,12 +39,11 @@ def _py4cl_non_callable(ele):
                                  ((pyeval "inspect.isclass(" pyfullname ")") 'class)
                                  (t t)))
             (lisp-fun-name (lispify-name pyfun-name)))
-        (intern (case callable-type
-                  (class (concatenate 'string lisp-fun-name "/CLASS"))
-                  (function (if (upper-case-p (char pyfun-name 0))
-                                (concatenate 'string lisp-fun-name "/1")
-                                lisp-fun-name))
-                  (t (get-unique-symbol lisp-fun-name lisp-package)))
+        (intern (progn
+                  ;; Some python modules (like meep) have class_name as well as ClassName
+                  (when (eq 'class callable-type)
+                    (setq lisp-fun-name (concatenate 'string lisp-fun-name "/CLASS")))
+                  (get-unique-symbol lisp-fun-name lisp-package))
                 lisp-package))
       ;; later, specialize further if needed
       (intern (lispify-name pyfun-name) lisp-package)))
