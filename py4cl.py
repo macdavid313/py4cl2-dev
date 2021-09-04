@@ -290,7 +290,7 @@ def lispify_handle(obj):
 	"""
 	handle = next(python_handle)
 	python_objects[handle] = obj
-	return "#.(py4cl2::make-python-object-finalize :type \""+str(type(obj))+"\" :handle "+str(handle)+")"
+	return "#.(py4cl2::customize (py4cl2::make-python-object-finalize :type \""+str(type(obj))+"\" :handle "+str(handle)+"))"
 
 def lispify(obj):
 	"""
@@ -459,7 +459,9 @@ for key in lispifiers.keys():
 	lispifiers[key] = eval(
 		"""
 lambda x: "#.(py4cl2::customize " + old_lispifiers[{0}](x) + ")"
-""".format(("" if key.__module__ == "builtins" or key.__module__ == "__main__" else key.__module__ + ".") + key.__name__ if key.__name__ != "NoneType" else "type(None)"))
+""".format(("" if key.__module__ == "builtins" or key.__module__ == "__main__" \
+			else key.__module__ + ".") + key.__name__ if key.__name__ != "NoneType" \
+		   else "type(None)"))
 
 async_results = {}  # Store for function results. Might be Exception
 async_handle = itertools.count(0) # Running counter
