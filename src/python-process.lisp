@@ -82,6 +82,7 @@ By default this is is set to *PYTHON-COMMAND*
                                     (asdf:find-component
                                      :py4cl2 "python-code")))
                                   " & set PYTHONIOENCODING=OLDPYTHONIOENCODING")
+                     :stream :lock
                      :input :stream
                      :output :stream
                      :error-output :stream)
@@ -108,6 +109,7 @@ By default this is is set to *PYTHON-COMMAND*
                                       (asdf:find-component
                                        :py4cl2 "python-code"))))
                                    "\"")
+                      :stream :lock
                       :input :stream
                       :output :stream
                       :error-output :stream))
