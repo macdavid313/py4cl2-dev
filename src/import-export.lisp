@@ -194,7 +194,7 @@ Arguments:
 
 (declaim (ftype (function (string string)) pymodule-import-string))
 (defun pymodule-import-string (pymodule-name lisp-package)
-  (let ((package-in-python (pythonize (intern lisp-package))))
+  (let ((package-in-python (%pythonize (intern lisp-package))))
     (values
      (cond (*is-submodule* "")
            (*lisp-package-supplied-p*

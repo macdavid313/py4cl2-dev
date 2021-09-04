@@ -54,8 +54,8 @@
 
 (defun pythonize-kwargs (arg-plist)
   (nconc (iter (generate elt in arg-plist)
-           (collect (pythonize (next elt)))
-           (collect (pythonize (next elt)))
+           (collect (%pythonize (next elt)))
+           (collect (%pythonize (next elt)))
            (collect ","))
          '(")")))
 
@@ -112,14 +112,14 @@
                                          (signal 'default-arg-list-necessary)))
                                      (t nil)))
                (parameter-kinds    (raw-pyeval "tuple(map(lambda p: p.kind.name, "
-                                               (pythonize parameters) "))"))
+                                               (%pythonize parameters) "))"))
                ;; names do not contain * or ** for var args
                (parameter-names    (raw-pyeval "tuple(map(lambda p: p.name, "
-                                               (pythonize parameters) "))"))
+                                               (%pythonize parameters) "))"))
                (parameter-defaults (raw-pyeval "tuple(map(lambda p: p.default, "
-                                               (pythonize parameters) "))"))
+                                               (%pythonize parameters) "))"))
                (parameter-empty-p  (raw-pyeval "tuple(map(lambda p: p.default == inspect._empty, "
-                                               (pythonize parameters) "))"))
+                                               (%pythonize parameters) "))"))
                rest keyword-rest)
           
           (iter
@@ -135,7 +135,7 @@
              (loop :for default :in parameter-defaults
                    ;; Needs that True translates to T; False translates to NIL
                    :if (and (typep default 'python-object)
-                            (not (raw-pyeval "inspect._empty == " (pythonize default))))
+                            (not (raw-pyeval "inspect._empty == " (%pythonize default))))
                      :do (signal 'default-is-python-object)))
             
             (for kind      in parameter-kinds)

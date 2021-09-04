@@ -6,10 +6,19 @@ This variable should be manipulated using CONFIG-VAR and (SETF CONFIG-VAR).")
 
 (defvar *lispifiers*
   ()
-  ;; Python to Lisp data transfer is the bottleneck :/
+  ;; Python to Lisp data transfer is the bottleneck, so making new objects is no big deal :/
   "Each entry in the alist *LISPIFIERS* maps from a lisp-type to
 a single-argument lisp function. This function takes as input the \"default\" lisp
 objects and is expected to appropriately parse it to the corresponding lisp object.
+
+NOTE: This is a new feature and hence unstable; recommended to avoid in production code.")
+
+(defvar *pythonizers*
+  ()
+  "Each entry in the alist *PYTHONIZERS* maps from a lisp-type to
+a single-argument PYTHON-FUNCTION-DESIGNATOR. This python function takes as input the
+\"default\" python objects and is expected to appropriately convert it to the corresponding
+python object.
 
 NOTE: This is a new feature and hence unstable; recommended to avoid in production code.")
 
@@ -42,15 +51,50 @@ NOTE: This is a new feature and hence unstable; recommended to avoid in producti
                               *lispifiers*)))
      ,@body))
 
+(defmacro with-pythonizers ((&rest overriding-pythonizers) &body body)
+  "Each entry of OVERRIDING-PYTHONIZERS is a two-element list of the form
+  (TYPE PYTHONIZER)
+Here, TYPE is unevaluated, while PYTHONIZER will be evaluated; the PYTHONIZER is expected
+to take a default-pythonized object (see lisp-python types translation table in docs)
+and return the appropriate object user expects.
+
+For example,
+
+  (PYEVAL \"[1, 2, 3]\") ;=> #(1 2 3) ; the default lispified object
+  (with-pythonizers ((vector \"tuple\"))
+    (print (pyeval \"[1,2,3]\"))
+    (print (pyeval 5)))
+  ; #(1 2 3) ; default lispified object
+  ; (1 2 3)  ; coerced to tuple by the pythonizer, which then translates to list
+  ; 5        ; pythonizer uncalled for non-VECTOR
+  5
+
+NOTE: This is a new feature and hence unstable; recommended to avoid in production code."
+  `(let ((*pythonizers* (list* ,@(loop :for (type pythonizer) :in overriding-pythonizers
+                                       :collect `(cons ',type ,pythonizer))
+                               *pythonizers*)))
+     ,@body))
+
 ;;; FIXME: Currently unused, probably requires fixes in DEFPYMODULE's CONTINUE-IGNORING-ERRORs
 (define-condition no-lispifier-found (condition)
   ())
 
 (defun customize (object)
+  ;; This is called from py4cl.py
   (loop :for (type . lispifier) :in *lispifiers*
         :if (typep object type)
           :do (return-from customize (funcall lispifier object)))
   object)
+
+(defun %pythonize (object)
+  "A wrapper around PYTHONIZE to take custom *PYTHONIZERS* into account."
+  (let ((default-pythonized-object (pythonize object)))
+    (loop :for (type . pythonizer) :in *pythonizers*
+          :if (typep object type)
+            :do (return-from %pythonize (concatenate 'string
+                                                     pythonizer "("
+                                                     default-pythonized-object ")")))
+    default-pythonized-object))
 
 #.(progn
     (alexandria:define-constant +py4cl2-config-path+

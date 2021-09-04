@@ -14,6 +14,9 @@
    #:pyinterrupt)
   (:export ; writer
    #:pythonize)
+  (:export ; reader
+   #:python-object
+   #:python-object-type)
   (:export ; callpython
    #:pyerror
    #:python-eof-but-alive
@@ -48,6 +51,8 @@
    #:*config*
    #:*lispifiers*
    #:with-lispifiers
+   #:*pythonizers*
+   #:with-pythonizers
    #:initialize
    #:save-config
    #:load-config

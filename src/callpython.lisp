@@ -153,7 +153,7 @@ will result in 'sys' name not defined PYERROR."
            (or (not (stringp value)) ; do not pythonize if
                (realp (ignore-errors (parse-number:parse-number value)))))
          (pythonize-if-needed (value)
-           (if (pythonizep value) (pythonize value) value)))
+           (if (pythonizep value) (%pythonize value) value)))
 
   (defun pyeval (&rest args)
     "Calls python eval on args; PYTHONIZEs arg if it satisfies PYTHONIZEP.
@@ -192,7 +192,7 @@ Can be useful for modifying a value directly in python.
          'string
          "("
          `(,@(iter (for arg in args)
-                   (for pythonized-arg = (pythonize arg))
+                   (for pythonized-arg = (%pythonize arg))
                    (if (and (symbolp arg)
                             (eq (find-package :keyword)
                                 (symbol-package arg)))
@@ -204,7 +204,7 @@ Can be useful for modifying a value directly in python.
 (flet ((pythonize-if-needed (name)
          (if (stringp name)
              name
-             (pythonize name))))
+             (%pythonize name))))
 
   (defun pycall (fun-name &rest args)
     "Calls FUN-NAME with ARGS as arguments. Arguments can be keyword based, or
@@ -226,7 +226,7 @@ Note: FUN-NAME is NOT PYTHONIZEd if it is a string.
     (python-start-if-not-alive)
     (apply #'pycall
            (concatenate 'string
-                        (pythonize object)
+                        (%pythonize object)
                         "."
                         (pythonize-if-needed method))
            args))
@@ -282,7 +282,7 @@ Note: FUN-NAME is NOT PYTHONIZEd if it is a string.
                                                          (symbol-package link)))
                                           (collect ",")))
                                   ")")))))
-          (t (pythonize chain))))
+          (t (%pythonize chain))))
       (format nil "~{~a~^.~}" (mapcar #'%chain* chain))))
 
 (defun chain* (&rest chain) (raw-pyeval (apply #'%chain* chain)))
@@ -291,7 +291,7 @@ Note: FUN-NAME is NOT PYTHONIZEd if it is a string.
 (defun (setf chain*) (value &rest args)
   (apply #'raw-pyexec (list (apply #'%chain* args)
                             "="
-                            (pythonize value)))
+                            (%pythonize value)))
   value)
 
 (defmacro with-remote-objects (&body body)

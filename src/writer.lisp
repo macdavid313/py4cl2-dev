@@ -182,7 +182,7 @@ evals a list with a single element as a tuple
                            :escape t :readably t)))))
 
 (defmethod pythonize ((obj symbol))
-  "One-to-one mapping between python name and lisp symbol names:
+  "Mapping from lisp symbol names to python names:
      symbol  :  symbol-name  : python-name
   'foo-bar   :  \"FOO-BAR\"  : foo_bar
   '|Foo-Bar| :  \"Foo-Bar\"  : Foo_Bar
