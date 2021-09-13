@@ -36,7 +36,9 @@
                           (coerce word 'string))
                         (remove-if #'null
                                    (break-into-words (coerce name 'list)))))
-         (prefinal-string (string-upcase (format nil "~{~A~^-~}" words))))
+         (prefinal-string (if (eq (readtable-case *readtable*) :UPCASE) ; only upcase the words when *readtable* in in :UPCASE mode
+                              (string-upcase (format nil "~{~A~^-~}" words))
+                              (format nil "~{~a~^-~}" words))))
     (remove-if (lambda (ch)
                  (char= ch #\_))
                prefinal-string

@@ -161,8 +161,22 @@ Enter full file path for storage (default /tmp/_numpy_pickle.npy): "
   #.(format nil "Load to *CONFIG* from ~D" +py4cl2-config-path+)
   (let ((config-path +py4cl2-config-path+)
         (cl-json:*json-symbols-package* :py4cl2))
-    (setq *config* (with-open-file (f config-path)
-                     (cl-json:decode-json f)))))
+    (setq *config*
+          #+allegro
+          (with-open-file (f config-path)
+            (let (config)
+              (st-json:mapjso (lambda (k v)
+                                (push (cons (cond ((string= k "pycmd") 'pycmd)
+                                                  ((string= k "numpyPickleLocation") 'numpy-pickle-location)
+                                                  ((string= k "numpyPickleLowerBound") 'numpy-pickle-lower-bound)
+                                                  ((string= k "useNumclArrays") 'use-numcl-arrays))
+                                            (if (eq v :null) nil v))
+                                      config))
+                              (st-json:read-json f))
+              (nreverse config)))
+          #-allegro
+          (with-open-file (f config-path)
+            (cl-json:decode-json f)))))
 
 (defun config-var (var)
   "Returns the value associated with VAR in *CONFIG*.

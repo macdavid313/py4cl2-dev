@@ -1,3 +1,7 @@
+#+allegro
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (require :st-json))
+
 (asdf:defsystem "py4cl2"
   :serial t
   :description "Some improvements over py4cl. py4cl is a library for interfacing with python libraries from common lisp, using streams to communicate with the python process.

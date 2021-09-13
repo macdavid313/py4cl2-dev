@@ -182,7 +182,7 @@ python_to_lisp_type = {
 }
 
 try:
-	python_to_lisp_type[inspect._empty] = "NIL"
+	python_to_lisp_type[inspect._empty] = "nil"
 except:
 	pass
 
@@ -236,18 +236,20 @@ def lispify_exception (obj):
 		return str(obj)
 
 lispifiers = {
-	bool              : lambda x: "T" if x else "NIL",
-	type(None)        : lambda x: "\"None\"", # Better be "NIL"..?
-	int               : str,
-	fractions.Fraction: str,
-	float             : lispify_float, # floats in python are double-floats of common-lisp
-	complex           : lambda x: "#C(" + lispify(x.real) + " " + lispify(x.imag) + ")",
-	list              : lambda x: "#(" + " ".join(lispify(elt) for elt in x) + ")",
-	tuple             : lispify_tuple,
-	dict              : lispify_dict,
-	str               : lambda x: "\"" + x.replace("\\", "\\\\").replace("\"", "\\\"")  + "\"",
-	type              : lambda x: "(quote " + python_to_lisp_type[x] + ")",
-	Symbol            : str,
+	bool       : lambda x: "t" if x else "nil",
+	type(None) : lambda x: "\"None\"",
+	int        : str,
+	float      : lambda x : str(x).replace("e", "d") if str(x).find("e") != -1 else str(x)+"d0",
+	complex    : lambda x: "#C(" + lispify(x.real) + " " + lispify(x.imag) + ")",
+	list       : lambda x: "#(" + " ".join(lispify(elt) for elt in x) + ")",
+	tuple      : lambda x: "\"()\"" if len(x)==0 else "(quote (" + " ".join(lispify(elt) for elt in x) + "))",
+	# Note: With dict -> hash table, use :test equal so that string keys work as expected
+	# TODO: Should test be equalp? Should users get an option to choose the test functions?
+	# Should we avoid using cl:make-hash-table and use custom hash-tables instead?
+	dict       : lambda x: "#.(let ((table (make-hash-table :test (quote cl:equal)))) " + " ".join("(setf (gethash (quote {}) table) (quote {}))".format(lispify(key), lispify(value)) for key, value in x.items()) + " table)",
+	str        : lambda x: "\"" + x.replace("\\", "\\\\").replace("\"", "\\\"")  + "\"",
+	type       : lambda x: "(quote " + python_to_lisp_type[x] + ")",
+	Symbol     : str,
 	UnknownLispObject : lambda x: "#.(py4cl2::lisp-object {})".format(x.handle),
 }
 
