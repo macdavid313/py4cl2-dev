@@ -16,6 +16,7 @@
    #:pythonize)
   (:export ; reader
    #:python-object
+   #:*print-python-object*
    #:python-object-type)
   (:export ; callpython
    #:pyerror

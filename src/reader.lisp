@@ -10,12 +10,19 @@ HANDLE slot is a unique key used to refer to a value in python."
   (type "" :type string)
   handle)
 
+(defvar *print-python-object* t
+  "If non-NIL, python's 'str' is called on the python-object before printing.")
+
 (defmethod print-object ((o python-object) s)
   (print-unreadable-object (o s :type t :identity t)
-    (terpri s)
-    (pprint-logical-block (s nil :per-line-prefix "  ")
-      (format s "~A" (pycall "str" o)))
-    (terpri s)))
+    (if *print-python-object*
+        (progn
+          (terpri s)
+          (pprint-logical-block (s nil :per-line-prefix "  ")
+            (format s "~A" (pyeval "str(" o ")")))
+          (terpri s))
+        (with-slots (type handle) o
+          (format s ":HANDLE ~A :TYPE ~A" handle type)))))
 
 (defvar *freed-python-objects* nil
   "A list of handles to be freed. This is used because garbage collection may occur in parallel with the main thread.")
