@@ -124,7 +124,11 @@ Passes strings as they are, without any 'pythonize'ation."
 (defun raw-pyeval (&rest strings)
   "Calls python eval on the concatenation of strings, as they are, without any
 pythonization or modification."
-  (apply #'raw-py #\e strings))
+  (restart-case (apply #'raw-py #\e strings)
+    (raw-pyexec ()
+      :report "If the error is 'invalid syntax', using 'exec' instead of 'eval' might work."
+      (apply #'raw-pyexec strings)
+      (values))))
 
 (declaim (ftype (function (&rest string)) raw-pyexec))
 (defun raw-pyexec (&rest strings)
