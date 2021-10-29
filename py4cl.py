@@ -16,6 +16,7 @@ import inspect
 import json
 import os
 import signal
+import traceback as tb
 
 numpy_is_installed = False
 try:
@@ -304,7 +305,8 @@ def lispify(obj):
 
 	try:
 		if isinstance(obj, Exception):
-			return str(obj)
+			return ("".join(tb.format_exception(type(obj), obj, obj.__traceback__))
+					if config["printPythonTraceback"] else str(obj))
 		elif numpy_is_installed and isinstance(obj, numpy.integer):
 			return str(obj)
 		else:
@@ -348,7 +350,8 @@ def send_value(value):
 	except Exception as e:
 		# At this point the message type has been sent,
 		# so we cannot change to throw an exception/signal condition
-		value_str = "Lispify error: " + str(e)
+		value_str = ("Lispify error: " + "".join(tb.format_exception(type(e), e, e.__traceback__)) \
+					 if config["printPythonTraceback"] else str(e))
 	print(len(value_str), file = return_stream, flush=True)
 	return_stream.write(value_str)
 	return_stream.flush()

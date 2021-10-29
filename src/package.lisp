@@ -61,6 +61,7 @@
    #:pycmd
    #:numpy-pickle-location
    #:numpy-pickle-lower-bound
+   #:print-python-traceback
    #:py-cd)
   (:export
    #:*internal-features*

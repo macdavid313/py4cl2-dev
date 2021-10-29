@@ -119,7 +119,7 @@ and numpy pickle file and lower bounds."
          (take-input "~%PY4CL2 uses pickled files to transfer large arrays between lisp
  and python efficiently. These are expected to have sizes exceeding 100MB
  (this depends on the value of *NUMPY-PICKLE-LOWER-BOUND*). Therefore, choose an
- appropriate location (*NUMPY-PICKLE-LOCATION*) for storing these arrays on disk.
+ appropriate location for storing these arrays on disk.
 
 Enter full file path for storage (default /tmp/_numpy_pickle.npy): "
                      "/tmp/_numpy_pickle.npy"))
@@ -127,11 +127,18 @@ Enter full file path for storage (default /tmp/_numpy_pickle.npy): "
          (parse-integer
           (take-input "Enter lower bound for using pickling (default 100000): "
                       "100000")))
+        (print-python-traceback
+          (let ((*read-eval* nil))
+            (read-from-string
+             (take-input "Should we print python traceback while printing errors?
+ Doing so might incur an overhead while handling errors. (NOTE: This is a new-feature, hence unstable.)"
+                         "T"))))
         )
     (setq  *config* ;; case conversion to and from symbols is handled by cl-json
            `((pycmd . ,pycmd)
              (numpy-pickle-location . ,numpy-pickle-location)
              (numpy-pickle-lower-bound . ,numpy-pickle-lower-bound)
+             (print-python-traceback . ,print-python-traceback)
              ))
     ;; to avoid development overhead, we will not bring these variables "out"
     (save-config)))
@@ -166,6 +173,8 @@ Configuration variables include (all in PY4CL2 package):
  be set to path on a ram-disk. See [this](https://unix.stackexchange.com/questions/66329/creating-a-ram-disk-on-linux) for
 instructions on creating a ram-disk on linux-based systems.
   - NUMPY-PICKLE-LOWER-BOUND: The minimum size of the array for which PY4CL2 should use pickled files.
+  - PRINT-PYTHON-TRACEBACK: If non-NIL, the traceback on python's side gets printed in
+ case of a python error. (NOTE: This is a new-feature, hence unstable)
 "
   (cdr (assoc var *config*)))
 
