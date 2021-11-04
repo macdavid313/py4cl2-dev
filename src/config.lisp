@@ -60,11 +60,11 @@ and return the appropriate object user expects.
 
 For example,
 
-  (PYEVAL \"[1, 2, 3]\") ;=> #(1 2 3) ; the default lispified object
+  (pyeval \"[1, 2, 3]\") ;=> #(1 2 3) ; the default object
   (with-pythonizers ((vector \"tuple\"))
     (print (pyeval \"[1,2,3]\"))
     (print (pyeval 5)))
-  ; #(1 2 3) ; default lispified object
+  ; #(1 2 3) ; default object
   ; (1 2 3)  ; coerced to tuple by the pythonizer, which then translates to list
   ; 5        ; pythonizer uncalled for non-VECTOR
   5
@@ -131,7 +131,8 @@ Enter full file path for storage (default /tmp/_numpy_pickle.npy): "
           (let ((*read-eval* nil))
             (read-from-string
              (take-input "Should we print python traceback while printing errors?
- Doing so might incur an overhead while handling errors. (NOTE: This is a new-feature, hence unstable.)"
+ Doing so might incur an overhead while handling errors. (NOTE: This is a new-feature, hence unstable.)
+ (default T)"
                          "T"))))
         )
     (setq  *config* ;; case conversion to and from symbols is handled by cl-json

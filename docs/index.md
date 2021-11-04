@@ -1,6 +1,6 @@
 # py4cl2
 
-[Last update: v2.8.0]
+[Last update: v2.9.0]
 
 ## Introduction
 
@@ -182,7 +182,8 @@ These values can also be accessed using `*config*` and `config-var`:
 
 ```lisp
 CL-USER> py4cl2:*config*
-((PY4CL2:PYCMD . "/home/user/miniconda3/bin/python")
+((PY4CL2:PRINT-PYTHON-TRACEBACK . T)
+ (PY4CL2:PYCMD . "/home/user/miniconda3/bin/python")
  (PY4CL2:NUMPY-PICKLE-LOCATION . "/home/user/ram-disk/_numpy_pickle.npy")
  (PY4CL2:NUMPY-PICKLE-LOWER-BOUND . 100000))
 CL-USER> (py4cl2:config-var 'py4cl2:numpy-pickle-location)
@@ -267,6 +268,7 @@ Equivalent of `slime-cd`, since python is a separate process.
 ##### python-alive-p
 ##### python-start-if-not-alive
 ##### \*defpymodule-silent-p\*
+##### \*print-python-object\*
 
 
 ### Doing arbitrary things in python
@@ -440,7 +442,7 @@ you'd need to use something like [pycall].
 
 (Undocumented here.)
 
-### Custom Type Mapping
+### Customizing Type Mapping
 
 #### \*lispifiers\*
 
@@ -456,9 +458,11 @@ Each entry in the alist `*lispifiers*` maps from a lisp-type to a single-argumen
 > NOTE: This is a new feature and hence unstable; recommended to avoid in production code.
 
 Each entry of `overriding-lispifiers` is a two-element list of the form
+
 ```
   (type lispifier)
 ```
+
 Here, `type` is unevaluated, while `lispifier` will be evaluated; the `lispifier` is expected
 to take a default-lispified object (see lisp-python types translation table in docs)
 and return the appropriate object user expects.
@@ -473,6 +477,46 @@ For example,
   ; #(1 2 3) ; default lispified object
   ; (1 2 3)  ; coerced to LIST by the lispifier
   ; 5        ; lispifier uncalled for non-VECTOR
+  5
+```
+
+#### \*pythonizers\*
+
+> NOTE: This is a new feature and hence unstable; recommended to avoid in production code.
+
+Each entry in the alist `*pythonizers*` maps from a lisp-type to
+a single-argument PYTHON-FUNCTION-DESIGNATOR. This python function takes as input the
+"default" python objects and is expected to appropriately convert it to the corresponding
+python object.
+
+#### with-pythonizers
+
+```lisp
+(with-pythonizers (&rest overriding-pythonizers) &body body)
+```
+
+> NOTE: This is a new feature and hence unstable; recommended to avoid in production code.
+
+Each entry of `overriding-pythonizers` is a two-element list of the form
+
+```
+  (type pythonizer)
+```
+
+Here, `type` is unevaluated, while `pythonizer` will be evaluated; the `pythonizer` is expected
+to take a default-pythonized object (see lisp-python types translation table in docs)
+and return the appropriate object user expects.
+
+For example,
+
+```lisp
+  (pyeval "[1, 2, 3]") ;=> #(1 2 3) ; the default object
+  (with-pythonizers ((vector "tuple"))
+    (print (pyeval "[1,2,3]"))
+    (print (pyeval 5)))
+  ; #(1 2 3) ; default object
+  ; (1 2 3)  ; coerced to tuple by the pythonizer, which then translates to list
+  ; 5        ; pythonizer uncalled for non-VECTOR
   5
 ```
 
