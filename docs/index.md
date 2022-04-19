@@ -706,7 +706,8 @@ This is inspired by the `chain` in parenscript, discussed in [this issue].
 In python it is quite common to apply a chain of method calls, data
 member access, and indexing operations to an object. To make this work
 smoothly in Lisp, there is the `chain` macro (Thanks to @kat-co and
-[[https://common-lisp.net/project/parenscript/reference.html][parenscript]] for the inspiration). This consists of a target object,
+[parenscript](https://common-lisp.net/project/parenscript/reference.html)
+for the inspiration). This consists of a target object,
 followed by a chain of operations to apply.  For example
 ```lisp
 (chain "hello {0}" (format "world") (capitalize)) ; => "Hello world"
@@ -727,7 +728,7 @@ evaluated, so the following works:
 ```lisp
 (let ((format-str "hello {0}")
       (argument "world"))
- (py4cl:chain format-str (format argument))) ; => "hello world"
+ (py4cl2:chain* format-str `(format ,argument))) ; => "hello world"
 ```
 
 Arguments to methods are lisp, since only the top level forms in `chain` are treated specially:
