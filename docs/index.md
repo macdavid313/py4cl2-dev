@@ -520,21 +520,21 @@ For example,
   5
 ```
 
-## Errors
+### Errors
 
-### pyerror
+#### pyerror
 
 Signalled if there an error in a running python process
 
-### python-process-startup-error
+#### python-process-startup-error
 
 Signalled if [pystart](#pystart) fails to start a python process
 
-### python-eof-and-dead
+#### python-eof-and-dead
 
 Signalled (from `dispatch-messages`) if the lisp process is unable to read/write from/to a python process and the process has died. This should provide a cleaner error than `CL:END-OF-FILE`.
 
-### python-eof-but-alive
+#### python-eof-but-alive
 
 Signalled (from `dispatch-messages`) if the lisp process is unable to read/write from/to a python process but the process is alive. This should provide a cleaner error than `CL:END-OF-FILE`.
 
@@ -701,7 +701,7 @@ Optionally, see [pymethod](#pymethod).
 ### chain(*)
 `(chain &rest chain)`
 
-This is inspired by the `chain` in parenscript, discussed in [this issue].
+This is inspired by the `chain` in parenscript, discussed in [this issue](https://github.com/bendudson/py4cl/issues/4).
 
 In python it is quite common to apply a chain of method calls, data
 member access, and indexing operations to an object. To make this work
@@ -720,12 +720,6 @@ A few examples are as follows:
 
 ```lisp
 (chain (slice 3) stop) ; => 3
-```
-
-
-Symbols as first argument, or arguments to python methods, are
-evaluated, so the following works:
-```lisp
 (let ((format-str "hello {0}")
       (argument "world"))
  (py4cl2:chain* format-str `(format ,argument))) ; => "hello world"
