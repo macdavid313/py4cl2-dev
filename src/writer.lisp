@@ -49,20 +49,27 @@ Default implementation creates a handle to an unknown Lisp object.")
   "Write a real number.
    Note that python doesn't handle 'd','f', 's' or 'L' exponent markers"
   (typecase obj
-    (single-float (cond ((= obj float-features:single-float-positive-infinity)
-                         "_py4cl_numpy.float32('inf')")
-                        ((= obj float-features:single-float-negative-infinity)
-                         "- _py4cl_numpy.float32('inf')")
-                        (t
-                         (concatenate 'string "_py4cl_numpy.float32("
-                                      (write-to-string obj) ")"))))
-    (double-float (cond ((= obj float-features:double-float-positive-infinity)
-                         "_py4cl_numpy.float64('inf')")
-                        ((= obj float-features:double-float-negative-infinity)
-                         "- _py4cl_numpy.float64('inf')")
-                        (t
-                         (concatenate 'string "_py4cl_numpy.float64("
-                                      (write-to-string obj) ")"))))
+    (single-float (switch (obj :test #'eql)
+                    (float-features:single-float-positive-infinity
+                     "_py4cl_numpy.float32('inf')")
+                    (float-features:single-float-negative-infinity
+                     "- _py4cl_numpy.float32('inf')")
+                    (float-features:single-float-nan
+                     "_py4cl_numpy.float32('nan')")
+                    (t
+                     (concatenate 'string "_py4cl_numpy.float32("
+                                  (write-to-string obj) ")"))))
+    (double-float (switch (obj :test #'eql)
+                    (float-features:double-float-positive-infinity
+                     "_py4cl_numpy.float64('inf')")
+                    (float-features:double-float-negative-infinity
+                     "- _py4cl_numpy.float64('inf')")
+                    (float-features:double-float-nan
+                     "_py4cl_numpy.float64('nan')")
+                    (t
+                     (concatenate 'string "_py4cl_numpy.float64("
+                                  (substitute #\e #\d (write-to-string obj))
+                                  ")"))))
     (t (substitute-if #\e (lambda (ch)
                             (member ch '(#\d #\D #\f #\F #\s #\S #\l #\L)))
                       (write-to-string obj)))))

@@ -190,11 +190,19 @@ return_values = 0
 # Copyright (c) 2018  Marco Heisig <marco.heisig@fau.de>
 #               2019  Ben Dudson <benjamin.dudson@york.ac.uk>
 
-def lispify_infinity_if_needed(lispified_float):
-	if lispified_float == "infd0": return "float-features:double-float-positive-infinity"
-	elif lispified_float == "inf": return "float-features:single-float-positive-infinity"
-	elif lispified_float == "-inf": return "float-features:single-float-negative-infinity"
-	elif lispified_float == "-infd0": return "float-features:double-float-negative-infinity"
+def lispify_infnan_if_needed(lispified_float):
+
+	table = {
+		"infd0": "float-features:double-float-positive-infinity",
+		"-infd0": "float-features:double-float-negative-infinity",
+		"inf": "float-features:single-float-positive-infinity",
+		"-inf": "float-features:single-float-negative-infinity",
+
+		"nan": "float-features:single-float-nan",
+		"nand0": "float-features:double-float-nan",
+	}
+
+	if lispified_float in table: return table[lispified_float]
 	else: return lispified_float
 
 lispifiers = {
@@ -202,7 +210,7 @@ lispifiers = {
 	type(None) : lambda x: "\"None\"",
 	int        : str,
 	# floats in python are double-floats of common-lisp
-	float      : lambda x: lispify_infinity_if_needed(str(x).replace("e", "d") if str(x).find("e") != -1 else str(x)+"d0"),
+	float      : lambda x: lispify_infnan_if_needed(str(x).replace("e", "d") if str(x).find("e") != -1 else str(x)+"d0"),
 	complex    : lambda x: "#C(" + lispify(x.real) + " " + lispify(x.imag) + ")",
 	list       : lambda x: "#(" + " ".join(lispify(elt) for elt in x) + ")",
 	tuple      : lambda x: "\"()\"" if len(x)==0 else "(quote (" + " ".join(lispify(elt) for elt in x) + "))",
@@ -286,8 +294,8 @@ if numpy_is_installed: #########################################################
 	# Register the handler to convert Python -> Lisp strings
 	lispifiers.update({
 		numpy.ndarray: lispify_ndarray,
-		numpy.float64: lambda x : lispify_infinity_if_needed(str(x).replace("e", "d") if str(x).find("e") != -1 else str(x)+"d0"),
-		numpy.float32: lambda x : lispify_infinity_if_needed(str(x)),
+		numpy.float64: lambda x : lispify_infnan_if_needed(str(x).replace("e", "d") if str(x).find("e") != -1 else str(x)+"d0"),
+		numpy.float32: lambda x : lispify_infnan_if_needed(str(x)),
 		numpy.bool_  : lambda x : "1" if x else "0"
 		# The case for integers is handled inside lispify function. At best, you would want a way to compare / check for subtypes to avoid casing on u/int64/32/16/8.
 	})
