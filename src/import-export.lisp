@@ -168,7 +168,7 @@ Arguments:
                   pymodule-name
                   ".__path__))")))
     (when (and (stringp submodules)
-               (string= "None" submodules))
+               (string= "()" submodules))
       (setq submodules nil))
     (iter (for (submodule has-submodules) in submodules)
       (for submodule-fullname = (concatenate 'string
