@@ -352,7 +352,8 @@ def send_value(value):
 		# so we cannot change to throw an exception/signal condition
 		value_str = ("Lispify error: " + "".join(tb.format_exception(type(e), e, e.__traceback__)) \
 					 if config["printPythonTraceback"] else str(e))
-	print(len(value_str), file = return_stream, flush=True)
+	excess_char_count = (0 if os.name != "nt" else value_str.count("\n"))
+	print(len(value_str)+excess_char_count, file = return_stream, flush=True)
 	return_stream.write(value_str)
 	return_stream.flush()
 

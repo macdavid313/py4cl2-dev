@@ -84,16 +84,6 @@ Returns the string or nil on error
     (with-output-to-string (str)
       (iter (for i from 1 to nchars)
         (for char = (read-char stream))
-        ;; A newline on Windows usually happens to be \r\n.
-        ;; Even though, the length gets counted as 1 by "usual" means.
-        ;; However, a \r can also occur by itself.
-        #+(or windows os-windows)
-        (for pchar previous char)
-        #+(or windows os-windows)
-        (when (and pchar
-                   (char= pchar #\return)
-                   (listen stream))
-          (decf i))
         (write-char char str)))))
 
 (defun stream-read-value (stream)
