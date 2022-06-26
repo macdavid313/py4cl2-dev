@@ -8,14 +8,15 @@ Report the issues at https://github.com/digikar99/py4cl2/issues
                          (string #\newline)
                          "py4cl2 maintainer: Shubhamkar Ayare <shubhamayare@yahoo.co.in>")
   :license "MIT"
-  :version "2.9.0"                  ; py4cl is assumed to be version 1
+  :version "2.9.1"                  ; py4cl is assumed to be version 1
   :depends-on ("alexandria"
                "bordeaux-threads"
                "cl-json"
-               "trivial-garbage"
+               "float-features"
                "iterate"
                "numpy-file-format"
                "parse-number"
+               "trivial-garbage"
                "uiop")
   :pathname #P"src/"
   :components ((:static-file "python-code" :pathname #P"../py4cl.py")
