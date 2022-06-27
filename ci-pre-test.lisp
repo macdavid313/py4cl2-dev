@@ -1,7 +1,7 @@
 (in-package :cl-user)
-(ql-dist:install-dist "http://beta.quicklisp.org/dist/quicklisp/2020-10-16/distinfo.txt"
-                      :replace t
-                      :prompt nil)
+;; (ql-dist:install-dist "http://beta.quicklisp.org/dist/quicklisp/2020-10-16/distinfo.txt"
+;;                       :replace t
+;;                       :prompt nil)
 (push :travis *features*)
 (push (print (pathname (uiop:getenv "EXOTIC_DIR")))
       ql:*local-project-directories*)
