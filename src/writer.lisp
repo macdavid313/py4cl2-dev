@@ -50,44 +50,42 @@ Default implementation creates a handle to an unknown Lisp object.")
    Note that python doesn't handle 'd','f', 's' or 'L' exponent markers"
   (if (member :arrays *internal-features*)
       (typecase obj
-        (single-float (switch (obj :test #'eql)
-                        (float-features:single-float-positive-infinity
-                         "_py4cl_numpy.float32('inf')")
-                        (float-features:single-float-negative-infinity
-                         "- _py4cl_numpy.float32('inf')")
-                        (float-features:single-float-nan
-                         "_py4cl_numpy.float32('nan')")
-                        (t
-                         (concatenate 'string "_py4cl_numpy.float32("
-                                      (write-to-string obj) ")"))))
-        (double-float (switch (obj :test #'eql)
-                        (float-features:double-float-positive-infinity
-                         "_py4cl_numpy.float64('inf')")
-                        (float-features:double-float-negative-infinity
-                         "- _py4cl_numpy.float64('inf')")
-                        (float-features:double-float-nan
-                         "_py4cl_numpy.float64('nan')")
-                        (t
-                         (concatenate 'string "_py4cl_numpy.float64("
-                                      (substitute #\e #\D
-                                                  (substitute #\e #\d (write-to-string obj)))
-                                      ")"))))
+        (single-float (cond ((float-features:float-nan-p obj)
+                             "_py4cl_numpy.float32('nan')")
+                            ((= obj float-features:single-float-positive-infinity)
+                             "_py4cl_numpy.float32('inf')")
+                            ((= obj float-features:single-float-negative-infinity)
+                             "- _py4cl_numpy.float32('inf')")
+                            (t
+                             (concatenate 'string "_py4cl_numpy.float32("
+                                          (write-to-string obj) ")"))))
+        (double-float (cond ((float-features:float-nan-p obj)
+                             "_py4cl_numpy.float64('nan')")
+                            ((= obj float-features:double-float-positive-infinity)
+                             "_py4cl_numpy.float64('inf')")
+                            ((= obj float-features:double-float-negative-infinity)
+                             "- _py4cl_numpy.float64('inf')")
+                            (t
+                             (concatenate 'string "_py4cl_numpy.float64("
+                                          (substitute #\e #\D
+                                                      (substitute #\e #\d (write-to-string obj)))
+                                          ")"))))
         (t (substitute-if #\e (lambda (ch)
                                 (member ch '(#\d #\D #\f #\F #\s #\S #\l #\L)))
                           (write-to-string obj))))
-      (switch (obj :test #'member)
-        ((list float-features:single-float-positive-infinity
-               float-features:double-float-positive-infinity)
-         "float('inf')")
-        ((list float-features:single-float-negative-infinity
-               float-features:double-float-negative-infinity)
-         "- float('inf')")
-        ((list float-features:single-float-nan float-features:double-float-nan)
-         "float('nan')")
-        (t
-         (substitute-if #\e (lambda (ch)
-                              (member ch '(#\d #\D #\f #\F #\s #\S #\l #\L)))
-                        (write-to-string obj))))))
+      (cond ((and (floatp obj)
+                  (float-features:float-nan-p obj))
+             "float('nan')")
+            ((member obj (list float-features:single-float-positive-infinity
+                               float-features:double-float-positive-infinity))
+             "float('inf')")
+            ((member obj (list float-features:single-float-negative-infinity
+                               float-features:double-float-negative-infinity))
+             "- float('inf')")
+            (t
+             (substitute-if #\e (lambda (ch)
+                                  (member ch '(#\d #\D #\f #\F #\s #\S #\l #\L)))
+                            (write-to-string obj))))))
 
 (defmethod pythonize ((obj complex))
   "Create string of the form \"(1+2j\".
