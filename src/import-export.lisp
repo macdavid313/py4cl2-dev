@@ -252,7 +252,7 @@ Arguments:
   SAFETY: value of safety to pass to defpyfun; see defpyfun
   SILENT: prints \"status\" lines when NIL"
   (let ((*defpymodule-cache* cache))
-    (if cache                
+    (if cache
         (handler-bind ((pyerror (lambda (e)
                                   (if continue-ignoring-errors
                                       (invoke-restart 'continue-ignoring-errors)
@@ -276,7 +276,7 @@ Arguments:
                    (eval-when (:compile-toplevel :load-toplevel :execute)
                      ,ensure-package-form)
                    ,defpackage-form))
-            (continue-ignoring-errors nil)))      
+            (continue-ignoring-errors nil)))
         `(eval-when (:compile-toplevel :load-toplevel :execute)
            (eval (cons 'progn
                        (multiple-value-list
@@ -311,7 +311,7 @@ Returns multiple values:
   (let ((package (find-package lisp-package))) ;; reload
     (if package
         (if reload
-            (delete-package package)
+            (uiop:delete-package* package :nuke t)
             (return-from defpymodule* "Package already exists."))))
 
   (python-start-if-not-alive)           ; Ensure python is running
