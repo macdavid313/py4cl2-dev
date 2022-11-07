@@ -11,6 +11,8 @@ jobs:
         lisp: [sbcl, ccl, ecl]
     runs-on: ubuntu-20.04
 
+    continue-on-error: true
+
     steps:
 
     - uses: actions/checkout@v2
