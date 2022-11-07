@@ -23,6 +23,8 @@ See https://askubuntu.com/questions/1118109/how-do-i-tell-if-a-command-is-runnin
 
   (defvar *py4cl-tests* nil)
 
+  ;; We are loading the whole file into a variable, because we want users to be able
+  ;; to use py4cl2 even in a dumped lisp image, without any additional configuration.
   (defvar *python-code*
     (alexandria:read-file-into-string
      (asdf:component-pathname
@@ -48,7 +50,7 @@ See https://askubuntu.com/questions/1118109/how-do-i-tell-if-a-command-is-runnin
 This sets the global variable *python* to the process handle,
 in addition to returning it.
 COMMAND is a string with the python executable to launch e.g. \"python\"
-By default this is is set to *PYTHON-COMMAND*
+By default this is is set to (CONFIG-VAR 'PYCMD)
 "
   (flet ((bash-escape-string (string) ; TODO: Better way to do things!
            ;; We want strings such as
