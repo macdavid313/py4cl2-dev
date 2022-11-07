@@ -108,6 +108,8 @@
                :python-process process)))))
 
 ;; ============================== RAW FUNCTIONS ================================
+(defvar *python-lock* (bt:make-lock "py4cl2"))
+
 (declaim (ftype (function (character &rest string)) raw-py))
 (defun raw-py (cmd-char &rest strings)
   "Intended as an abstraction to RAW-PYEVAL and RAW_PYEXEC.
@@ -115,10 +117,12 @@ Passes strings as they are, without any 'pythonize'ation."
   (python-start-if-not-alive)
   (let ((stream (uiop:process-info-input *python*))
         (str (apply #'concatenate 'string strings)))
-    (write-char cmd-char stream)
-    (stream-write-string str stream)
-    (force-output stream)
-    (dispatch-messages *python*))) ; wait for python
+    (bt:with-lock-held (*python-lock*) ; wait for previous processing to be done
+      (write-char cmd-char stream)
+      (stream-write-string str stream)
+      (force-output stream)
+      ;; wait for python output
+      (dispatch-messages *python*))))
 
 (declaim (ftype (function (&rest string)) raw-pyeval))
 (defun raw-pyeval (&rest strings)
