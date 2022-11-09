@@ -282,7 +282,7 @@ if numpy_is_installed: #########################################################
 			return array
 		if obj.ndim == 0:
 			# Convert to scalar then lispify
-			return lispify(numpy.asscalar(obj))
+			return lispify(obj.item())
 
 		array = "(cl:make-array " + str(obj.size) + " :initial-contents (cl:list " \
 			+ " ".join(map(lispify, numpy.ndarray.flatten(obj))) + ") :element-type " \
