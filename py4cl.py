@@ -495,13 +495,23 @@ if numpy_is_installed:
 # Lisp-side customize-able lispifiers
 # FIXME: Is there a better way than going to each of the above and doing manually?
 old_lispifiers = lispifiers.copy()
-for key in lispifiers.keys():
-	lispifiers[key] = eval(
-		"""
-lambda x: "#.(py4cl2::customize " + old_lispifiers[{0}](x) + ")"
-""".format(("" if key.__module__ == "builtins" or key.__module__ == "__main__" \
-			else key.__module__ + ".") + key.__name__ if key.__name__ != "NoneType" \
-		   else "type(None)"))
+def customize_lispifiers ():
+    def fun_1 (key):
+        if key.__module__ == "builtins" or key.__module__ == "__main__":
+            return ""
+	else:
+            return key.__module__ + "."
+    def fun_2 (key):
+        if key.__name__ != "NoneType":
+            return key.__name__
+        else:
+            return "type(None)"
+    for key in lispifiers.keys():
+        expr = """lambda x: "#.(py4cl2::customize " + old_lispifiers[{0}](x) + ")"  """
+	expr = expr.format(fun_1(key) + fun_2(key))
+        lispifiers[key] = eval(expr)
+
+customize_lispifiers()
 
 async_results = {}  # Store for function results. Might be Exception
 async_handle = itertools.count(0) # Running counter
