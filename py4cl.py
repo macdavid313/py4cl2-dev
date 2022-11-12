@@ -52,6 +52,12 @@ def load_config():
 
 load_config()
 
+# Handle fractions (python Fraction -> Lisp RATIO)
+# Lisp will pass strings containing "_py4cl_fraction(n,d)"
+# where n and d are integers.
+import fractions
+eval_globals["_py4cl_fraction"] = fractions.Fraction
+
 class Symbol(object):
 	"""
 	A wrapper around a string, representing a Lisp symbol.
@@ -230,8 +236,8 @@ lispifiers = {
     bool              : lambda x: "T" if x else "NIL",
     type(None)        : lambda x: "NIL",
     int               : str,
-    # floats in python are double-floats of common-lisp
-    float             : float_lispifier,
+    fractions.Fraction: str,
+    float             : float_lispifier, # floats in python are double-floats of common-lisp
     complex           : lambda x: "#C(" + lispify(x.real) + " " + lispify(x.imag) + ")",
     list              : lambda x: "#(" + " ".join(lispify(elt) for elt in x) + ")",
     tuple             : tuple_lispifier,
@@ -485,16 +491,6 @@ if numpy_is_installed:
 	eval_globals["_py4cl_numpy"] = numpy
 	eval_globals["_py4cl_load_pickled_ndarray"] \
 		= load_pickled_ndarray
-
-# Handle fractions (RATIO type)
-# Lisp will pass strings containing "_py4cl_fraction(n,d)"
-# where n and d are integers.
-
-import fractions
-eval_globals["_py4cl_fraction"] = fractions.Fraction
-
-# Turn a Fraction into a Lisp RATIO
-lispifiers[fractions.Fraction] = str
 
 # Lisp-side customize-able lispifiers
 # FIXME: Is there a better way than going to each of the above and doing manually?
