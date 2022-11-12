@@ -237,7 +237,7 @@ lispifiers = {
 }
 
 if numpy_is_installed: #########################################################
-	NUMPY_PICKLE_INDEX = 0 # optional increment in lispify_ndarray and reset to 0
+	NUMPY_PICKLE_INDEX = 0 # optional increment in ndarray_lispifier and reset to 0
 
 	def load_pickled_ndarray(filename):
 		arr = numpy.load(filename, allow_pickle = True)
@@ -273,7 +273,7 @@ if numpy_is_installed: #########################################################
 		except KeyError:
 			raise Exception("Do not know how to convert " + str(numpy_type) + " to CL")
 
-	def lispify_ndarray(obj):
+	def ndarray_lispifier (obj):
 		"""Convert a NumPy array to a string which can be read by lisp
 		Example:
 		array([[1, 2],     => "#2A((1 2) (3 4))"
@@ -288,19 +288,22 @@ if numpy_is_installed: #########################################################
 			NUMPY_PICKLE_INDEX += 1
 			with open(numpy_pickle_location, "wb") as f:
 				numpy.save(f, obj, allow_pickle = True)
-
-			array = "#.(numpy-file-format:load-array \"" + numpy_pickle_location + "\")"
-			return array
+			result = "#.(numpy-file-format:load-array \"{0}\")".format(numpy_pickle_location)
+			return result
 		if obj.ndim == 0:
 			# Convert to scalar then lispify
 			return lispify(obj.item())
-
-		array = "(cl:make-array " + str(obj.size) + " :initial-contents (cl:list " \
-			+ " ".join(map(lispify, numpy.ndarray.flatten(obj))) + ") :element-type " \
-			+ numpy_to_cl_type(obj.dtype) + ")"
-		array = "#.(cl:make-array (cl:quote " + lispify(obj.shape) + ") :element-type " \
-			+ numpy_to_cl_type(obj.dtype) + " :displaced-to " + array + " :displaced-index-offset 0)"
-		return array
+		result = "(cl:list {0}) ".format(" ".join(map(lispify, numpy.ndarray.flatten(obj))))
+		result = "(cl:make-array "     + str(obj.size)                        + \
+			 " :initial-contents " + result                               + \
+			 " :element-type "     + numpy_to_cl_type(obj.dtype)          + \
+			 ")"
+		result = "#.(cl:make-array (cl:quote {0})".format(lispify(obj.shape)) + \
+			 " :element-type "     + numpy_to_cl_type(obj.dtype)          + \
+			 " :displaced-to "     + result                               + \
+			 " :displaced-index-offset 0"                                 + \
+			 ")"
+		return result
 
 	# Register the handler to convert Python -> Lisp strings
 	#
@@ -308,7 +311,7 @@ if numpy_is_installed: #########################################################
 	# function. At best, you would want a way to compare /
 	# check for subtypes to avoid casing on u/int64/32/16/8.
 	lispifiers.update({
-		numpy.ndarray: lispify_ndarray,
+		numpy.ndarray: ndarray_lispifier,
 		numpy.float64: lambda x : float_lispifier,
 		numpy.float32: lambda x : infnan_lispifier(str(x)),
 		numpy.bool_  : lambda x : "1" if x else "0"})
