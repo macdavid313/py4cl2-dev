@@ -16,7 +16,7 @@ import inspect
 import json
 import os
 import signal
-import traceback as tb
+import traceback
 
 numpy_is_installed = False
 try:
@@ -220,6 +220,12 @@ def float_lispifier (float):
         lispified_float = str(float)+"d0"
     return infnan_lispifier(lispified_float)
 
+def Exception_lispifier (obj):
+	if config["printPythonTraceback"]:
+		return "".join(traceback.format_exception(type(obj), obj, obj.__traceback__))
+	else:
+		return str(obj)
+
 lispifiers = {
     bool              : lambda x: "T" if x else "NIL",
     type(None)        : lambda x: "NIL",
@@ -341,8 +347,7 @@ def lispify(obj):
 
 	try:
 		if isinstance(obj, Exception):
-			return ("".join(tb.format_exception(type(obj), obj, obj.__traceback__))
-					if config["printPythonTraceback"] else str(obj))
+			return Exception_lispifier(obj)
 		elif numpy_is_installed and isinstance(obj, numpy.integer):
 			return str(obj)
 		else:
@@ -386,8 +391,7 @@ def send_value(value):
 	except Exception as e:
 		# At this point the message type has been sent,
 		# so we cannot change to throw an exception/signal condition
-		value_str = ("Lispify error: " + "".join(tb.format_exception(type(e), e, e.__traceback__)) \
-					 if config["printPythonTraceback"] else str(e))
+		value_str = "Lispify error: {0}".format(Exception_lispifier(e))
 	excess_char_count = (0 if os.name != "nt" else value_str.count("\n"))
 	print(len(value_str)+excess_char_count, file = return_stream, flush=True)
 	return_stream.write(value_str)
