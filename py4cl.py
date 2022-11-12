@@ -314,13 +314,17 @@ if numpy_is_installed: #########################################################
 		numpy.bool_  : lambda x : "1" if x else "0"})
 # end of "if numpy_is_installed" ###############################################
 
-def lispify_handle(obj):
+def handle_lispifier (obj):
 	"""
 	Store an object in a dictionary, and return a handle
 	"""
 	handle = next(python_handle)
 	python_objects[handle] = obj
-	return "#.(py4cl2::customize (py4cl2::make-python-object-finalize :type \""+str(type(obj))+"\" :handle "+str(handle)+"))"
+	return "#.(py4cl2::customize "                        + \
+		"(py4cl2::make-python-object-finalize :type " + \
+		"\"{0}\"".format(str(type(obj)))            + \
+		" :handle {0}".format(str(handle))          + \
+		"))"
 
 def lispify(obj):
 	"""
@@ -330,7 +334,7 @@ def lispify(obj):
 	"""
 	if return_values > 0:
 		if isinstance(obj, Exception): return str(obj)
-		else: return lispify_handle(obj)
+		else: return handle_lispifier(obj)
 
 	try:
 		if isinstance(obj, Exception):
@@ -342,7 +346,7 @@ def lispify(obj):
 			return lispifiers[type(obj)](obj)
 	except KeyError:
 		# Unknown type. Return a handle to a python object
-		return lispify_handle(obj)
+		return handle_lispifier(obj)
 
 def generator(function, stop_value):
 	temp = None
