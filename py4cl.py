@@ -61,7 +61,7 @@ class Symbol(object):
 	def __str__(self):
 		return self._name
 	def __repr__(self):
-		return "Symbol("+self._name+")"
+		return "Symbol({0})".format(self._name)
 
 class LispCallbackObject (object):
 	"""
@@ -138,7 +138,7 @@ class UnknownLispObject (object):
 			sys.stdout = output_stream
 
 	def __str__(self):
-		return "UnknownLispObject(\""+self.lisptype+"\", "+str(self.handle)+")"
+		return "UnknownLispObject(\"{0}\", {1})".format(self.lisptype, str(self.handle))
 
 	def __getattr__(self, attr):
 		# Check if there is a slot with this name
@@ -165,14 +165,14 @@ class UnknownLispObject (object):
 		return message_dispatch_loop()
 
 python_to_lisp_type = {
-	bool: "BOOLEAN",
-	type(None): "NULL",
-	int: "INTEGER",
-	float: "FLOAT",
-	complex: "COMPLEX",
-	list: "VECTOR",
-	dict: "HASH-TABLE",
-	str: "STRING",
+	bool       : "BOOLEAN",
+	type(None) : "NULL",
+	int        : "INTEGER",
+	float      : "FLOAT",
+	complex    : "COMPLEX",
+	list       : "VECTOR",
+	dict       : "HASH-TABLE",
+	str        : "STRING",
 }
 
 try:
@@ -260,7 +260,7 @@ if numpy_is_installed: #########################################################
 		try:
 			return numpy_cl_type[numpy_type]
 		except KeyError:
-			raise Exception("Do not know how to convert " + str(numpy_type) + " to CL")
+			raise Exception("Do not know how to convert {0} to CL.".format(str(numpy_type))
 
 	def lispify_ndarray(obj):
 		"""Convert a NumPy array to a string which can be read by lisp
@@ -435,7 +435,7 @@ def message_dispatch_loop():
 			elif cmd_type == "o":  # Return values when possible (default)
 				return_values -= 1
 			else:
-				return_error("Unknown message type \"{0}\"".format(cmd_type))
+				return_error("Unknown message type \"{0}\".".format(cmd_type))
 		except KeyboardInterrupt as e: # to catch SIGINT
 			# output_stream.write("Python interrupted!\n")
 			return_value(None)
@@ -473,6 +473,7 @@ eval_globals["_py4cl_fraction"] = fractions.Fraction
 lispifiers[fractions.Fraction] = str
 
 # Lisp-side customize-able lispifiers
+# FIXME: Style of code below has to be fixed.
 # FIXME: Is there a better way than going to each of the above and doing manually?
 old_lispifiers = lispifiers.copy()
 for key in lispifiers.keys():
