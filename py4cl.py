@@ -208,7 +208,7 @@ def float_lispifier (float):
               "-inf"  : "float-features:single-float-negative-infinity",
               "nan"   : "float-features:single-float-nan",
               "nand0" : "float-features:double-float-nan"}
-    if str(float).find("e") != -1:
+    if "e" in str(float):
         lispified_float = str(float).replace("e", "d")
     else:
         lispified_float = str(float)+"d0"
@@ -301,7 +301,7 @@ if numpy_is_installed: #########################################################
 	# Register the handler to convert Python -> Lisp strings
 	lispifiers.update({
 		numpy.ndarray: lispify_ndarray,
-		numpy.float64: lambda x : lispify_infnan_if_needed(str(x).replace("e", "d") if str(x).find("e") != -1 else str(x)+"d0"),
+		numpy.float64: lambda x : lispify_infnan_if_needed(str(x).replace("e", "d") if "e" in str(x) else str(x)+"d0"),
 		numpy.float32: lambda x : lispify_infnan_if_needed(str(x)),
 		numpy.bool_  : lambda x : "1" if x else "0"
 		# The case for integers is handled inside lispify function. At best, you would want a way to compare / check for subtypes to avoid casing on u/int64/32/16/8.
