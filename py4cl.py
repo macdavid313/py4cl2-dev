@@ -201,20 +201,24 @@ def dict_lispifier (dict):
 def tuple_lispifier (tuple):
     return "(quote (" + " ".join(lispify(elt) for elt in tuple) + "))"
 
-def float_lispifier (float):
+def infnan_lispifier (lispified_float):
     infnan = {"infd0" : "float-features:double-float-positive-infinity",
               "-infd0": "float-features:double-float-negative-infinity",
               "inf"   : "float-features:single-float-positive-infinity",
               "-inf"  : "float-features:single-float-negative-infinity",
               "nan"   : "float-features:single-float-nan",
               "nand0" : "float-features:double-float-nan"}
+    if lispified_float in table:
+        return table[lispified_float]
+    else:
+        return lispified_float
+
+def float_lispifier (float):
     if "e" in str(float):
         lispified_float = str(float).replace("e", "d")
     else:
         lispified_float = str(float)+"d0"
-    if lispified_float in infnan:
-        lispified_float = infnan[lispified_float]
-    return lispified_float
+    return infnan_lispifier(lispified_float)
 
 lispifiers = {
     bool              : lambda x: "T" if x else "NIL",
@@ -299,13 +303,15 @@ if numpy_is_installed: #########################################################
 		return array
 
 	# Register the handler to convert Python -> Lisp strings
+	#
+	# The case for integers is handled inside lispify
+	# function. At best, you would want a way to compare /
+	# check for subtypes to avoid casing on u/int64/32/16/8.
 	lispifiers.update({
 		numpy.ndarray: lispify_ndarray,
-		numpy.float64: lambda x : lispify_infnan_if_needed(str(x).replace("e", "d") if "e" in str(x) else str(x)+"d0"),
-		numpy.float32: lambda x : lispify_infnan_if_needed(str(x)),
-		numpy.bool_  : lambda x : "1" if x else "0"
-		# The case for integers is handled inside lispify function. At best, you would want a way to compare / check for subtypes to avoid casing on u/int64/32/16/8.
-	})
+		numpy.float64: lambda x : float_lispifier,
+		numpy.float32: lambda x : infnan_lispifier(str(x)),
+		numpy.bool_  : lambda x : "1" if x else "0"})
 # end of "if numpy_is_installed" ###############################################
 
 def lispify_handle(obj):
