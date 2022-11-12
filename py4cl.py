@@ -190,39 +190,46 @@ return_values = 0
 # Copyright (c) 2018  Marco Heisig <marco.heisig@fau.de>
 #               2019  Ben Dudson <benjamin.dudson@york.ac.uk>
 
-def lispify_infnan_if_needed(lispified_float):
+def dict_lispifier (dict):
+    segment_  = "(cl::setf (cl::gethash (cl::quote {}) table) (cl::quote {}))"
+    segments  = [segment_.format(lispify(key), lispify(value)) for key, value in dict.items()]
+    segment_0 = "#.(cl::let ((table (cl::make-hash-table :test (cl::quote cl::equal)))) "
+    segment_1 = " ".join(segments)
+    segment_2 = " table)"
+    return segment_0 + segment_1 + segment_2
 
-	table = {
-		"infd0": "float-features:double-float-positive-infinity",
-		"-infd0": "float-features:double-float-negative-infinity",
-		"inf": "float-features:single-float-positive-infinity",
-		"-inf": "float-features:single-float-negative-infinity",
+def tuple_lispifier (tuple):
+    return "(quote (" + " ".join(lispify(elt) for elt in tuple) + "))"
 
-		"nan": "float-features:single-float-nan",
-		"nand0": "float-features:double-float-nan",
-	}
-
-	if lispified_float in table: return table[lispified_float]
-	else: return lispified_float
+def float_lispifier (float):
+    infnan = {"infd0" : "float-features:double-float-positive-infinity",
+              "-infd0": "float-features:double-float-negative-infinity",
+              "inf"   : "float-features:single-float-positive-infinity",
+              "-inf"  : "float-features:single-float-negative-infinity",
+              "nan"   : "float-features:single-float-nan",
+              "nand0" : "float-features:double-float-nan"}
+    if str(float).find("e") != -1:
+        lispified_float = str(float).replace("e", "d")
+    else:
+        lispified_float = str(float)+"d0"
+    if lispified_float in infnan:
+        lispified_float = infnan[lispified_float]
+    return lispified_float
 
 lispifiers = {
-	bool       : lambda x: "T" if x else "NIL",
-	type(None) : lambda x: "\"None\"",
-	int        : str,
-	# floats in python are double-floats of common-lisp
-	float      : lambda x: lispify_infnan_if_needed(str(x).replace("e", "d") if str(x).find("e") != -1 else str(x)+"d0"),
-	complex    : lambda x: "#C(" + lispify(x.real) + " " + lispify(x.imag) + ")",
-	list       : lambda x: "#(" + " ".join(lispify(elt) for elt in x) + ")",
-	tuple      : lambda x: "\"()\"" if len(x)==0 else "(quote (" + " ".join(lispify(elt) for elt in x) + "))",
-	# Note: With dict -> hash table, use :test equal so that string keys work as expected
-	# TODO: Should test be equalp? Should users get an option to choose the test functions?
-	# Should we avoid using cl:make-hash-table and use custom hash-tables instead?
-	dict       : lambda x: "#.(let ((table (make-hash-table :test (quote cl:equal)))) " + " ".join("(setf (gethash (quote {}) table) (quote {}))".format(lispify(key), lispify(value)) for key, value in x.items()) + " table)",
-	str        : lambda x: "\"" + x.replace("\\", "\\\\").replace("\"", "\\\"")  + "\"",
-	type       : lambda x: "(quote " + python_to_lisp_type[x] + ")",
-	Symbol     : str,
-	UnknownLispObject : lambda x: "#.(py4cl2::lisp-object {})".format(x.handle),
-	# there is another lispifier just below
+    bool              : lambda x: "T" if x else "NIL",
+    type(None)        : lambda x: "NIL",
+    int               : str,
+    # floats in python are double-floats of common-lisp
+    float             : float_lispifier,
+    complex           : lambda x: "#C(" + lispify(x.real) + " " + lispify(x.imag) + ")",
+    list              : lambda x: "#(" + " ".join(lispify(elt) for elt in x) + ")",
+    tuple             : tuple_lispifier,
+    dict              : dict_lispifier,
+    str               : lambda x: "\"" + x.replace("\\", "\\\\").replace("\"", "\\\"")  + "\"",
+    type              : lambda x: "(quote " + python_to_lisp_type[x] + ")",
+    Symbol            : str,
+    UnknownLispObject : lambda x: "#.(py4cl2::lisp-object {})".format(x.handle),
 }
 
 if numpy_is_installed: #########################################################
