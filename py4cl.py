@@ -237,7 +237,7 @@ def Exception_lispifier (obj):
 
 lispifiers = {
     bool              : lambda x: "T" if x else "NIL",
-    type(None)        : lambda x: "\"None\"",
+    type(None)        : lambda x: "\"None\"", # Better be "NIL"..?
     int               : str,
     fractions.Fraction: str,
     float             : float_lispifier, # floats in python are double-floats of common-lisp
