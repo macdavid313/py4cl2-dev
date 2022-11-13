@@ -277,20 +277,17 @@ if numpy_is_installed: #########################################################
 			NUMPY_PICKLE_INDEX += 1
 			with open(numpy_pickle_location, "wb") as f:
 				numpy.save(f, obj, allow_pickle = True)
-
 			array = "#.(numpy-file-format:load-array \"" + numpy_pickle_location + "\")"
 			return array
 		if obj.ndim == 0:
 			# Convert to scalar then lispify
 			return lispify(obj.item())
-
 		array = "(cl:make-array " + str(obj.size) + " :initial-contents (cl:list " \
 			+ " ".join(map(lispify, numpy.ndarray.flatten(obj))) + ") :element-type " \
 			+ numpy_to_cl_type(obj.dtype) + ")"
 		array = "#.(cl:make-array (cl:quote " + lispify(obj.shape) + ") :element-type " \
 			+ numpy_to_cl_type(obj.dtype) + " :displaced-to " + array + " :displaced-index-offset 0)"
 		return array
-
 	# Register the handler to convert Python -> Lisp strings
 	lispifiers.update({
 		numpy.ndarray: lispify_ndarray,
