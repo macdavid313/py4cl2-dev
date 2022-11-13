@@ -260,7 +260,7 @@ if numpy_is_installed: #########################################################
 		try:
 			return numpy_cl_type[numpy_type]
 		except KeyError:
-			raise Exception("Do not know how to convert {0} to CL.".format(str(numpy_type))
+			raise Exception("Do not know how to convert {0} to CL.".format(str(numpy_type)))
 
 	def lispify_ndarray(obj):
 		"""Convert a NumPy array to a string which can be read by lisp
