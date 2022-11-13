@@ -499,7 +499,7 @@ def customize_lispifiers ():
     def fun_1 (key):
         if key.__module__ == "builtins" or key.__module__ == "__main__":
             return ""
-    else:
+        else:
             return key.__module__ + "."
     def fun_2 (key):
         if key.__name__ != "NoneType":
