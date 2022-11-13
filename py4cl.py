@@ -214,8 +214,8 @@ def infnan_lispifier (lispified_float):
               "-inf"  : "float-features:single-float-negative-infinity",
               "nan"   : "float-features:single-float-nan",
               "nand0" : "float-features:double-float-nan"}
-    if lispified_float in table:
-        return table[lispified_float]
+    if lispified_float in infnan:
+        return infnan[lispified_float]
     else:
         return lispified_float
 
