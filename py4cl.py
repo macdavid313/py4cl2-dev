@@ -327,7 +327,7 @@ if numpy_is_installed: #########################################################
 	# check for subtypes to avoid casing on u/int64/32/16/8.
 	lispifiers.update({
 		numpy.ndarray: ndarray_lispifier,
-		numpy.float64: lambda x : float_lispifier,
+		numpy.float64: float_lispifier,
 		numpy.float32: lambda x : infnan_lispifier(str(x)),
 		numpy.bool_  : lambda x : "1" if x else "0"})
 # end of "if numpy_is_installed" ###############################################
