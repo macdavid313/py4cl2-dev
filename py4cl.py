@@ -205,7 +205,10 @@ def dict_lispifier (dict):
     return segment_0 + segment_1 + segment_2
 
 def tuple_lispifier (tuple):
-    return "(quote (" + " ".join(lispify(elt) for elt in tuple) + "))"
+    if len(tuple) == 0:
+        return "\"()\""
+    else:
+        return "(quote (" + " ".join(lispify(elt) for elt in tuple) + "))"
 
 def infnan_lispifier (lispified_float):
     infnan = {"infd0" : "float-features:double-float-positive-infinity",
