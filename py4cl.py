@@ -66,7 +66,7 @@ class Symbol(object):
 	def __str__(self):
 		return self._name
 	def __repr__(self):
-		return "Symbol("+self._name+")"
+		return "Symbol({0})".format(self._name)
 
 class LispCallbackObject (object):
 	"""
@@ -140,7 +140,7 @@ class UnknownLispObject (object):
 			sys.stdout = output_stream
 
 	def __str__(self):
-		return "UnknownLispObject(\""+self.lisptype+"\", "+str(self.handle)+")"
+		return "UnknownLispObject(\"{0}\", {1})".format(self.lisptype, str(self.handle))
 
 	def __getattr__(self, attr):
 		# Check if there is a slot with this name
@@ -165,14 +165,14 @@ class UnknownLispObject (object):
 		return message_dispatch_loop()
 
 python_to_lisp_type = {
-	bool: "BOOLEAN",
-	type(None): "NULL",
-	int: "INTEGER",
-	float: "FLOAT",
-	complex: "COMPLEX",
-	list: "VECTOR",
-	dict: "HASH-TABLE",
-	str: "STRING",
+	bool       : "BOOLEAN",
+	type(None) : "NULL",
+	int        : "INTEGER",
+	float      : "FLOAT",
+	complex    : "COMPLEX",
+	list       : "VECTOR",
+	dict       : "HASH-TABLE",
+	str        : "STRING",
 }
 
 try:
@@ -260,7 +260,7 @@ if numpy_is_installed: #########################################################
 		try:
 			return numpy_cl_type[numpy_type]
 		except KeyError:
-			raise Exception("Do not know how to convert " + str(numpy_type) + " to CL")
+			raise Exception("Do not know how to convert {0} to CL.".format(str(numpy_type)))
 
 	def lispify_ndarray(obj):
 		"""Convert a NumPy array to a string which can be read by lisp
@@ -277,20 +277,17 @@ if numpy_is_installed: #########################################################
 			NUMPY_PICKLE_INDEX += 1
 			with open(numpy_pickle_location, "wb") as f:
 				numpy.save(f, obj, allow_pickle = True)
-
 			array = "#.(numpy-file-format:load-array \"" + numpy_pickle_location + "\")"
 			return array
 		if obj.ndim == 0:
 			# Convert to scalar then lispify
 			return lispify(obj.item())
-
 		array = "(cl:make-array " + str(obj.size) + " :initial-contents (cl:list " \
 			+ " ".join(map(lispify, numpy.ndarray.flatten(obj))) + ") :element-type " \
 			+ numpy_to_cl_type(obj.dtype) + ")"
 		array = "#.(cl:make-array (cl:quote " + lispify(obj.shape) + ") :element-type " \
 			+ numpy_to_cl_type(obj.dtype) + " :displaced-to " + array + " :displaced-index-offset 0)"
 		return array
-
 	# Register the handler to convert Python -> Lisp strings
 	lispifiers.update({
 		numpy.ndarray: lispify_ndarray,
@@ -434,7 +431,7 @@ def message_dispatch_loop():
 			elif cmd_type == "o":  # Return values when possible (default)
 				return_values -= 1
 			else:
-				return_error("Unknown message type \"{0}\"".format(cmd_type))
+				return_error("Unknown message type \"{0}\".".format(cmd_type))
 		except KeyboardInterrupt as e: # to catch SIGINT
 			# output_stream.write("Python interrupted!\n")
 			return_value(None)
@@ -471,6 +468,7 @@ if numpy_is_installed:
 	})
 
 # Lisp-side customize-able lispifiers
+# FIXME: Style of code below has to be fixed.
 # FIXME: Is there a better way than going to each of the above and doing manually?
 old_lispifiers = lispifiers.copy()
 for key in lispifiers.keys():
