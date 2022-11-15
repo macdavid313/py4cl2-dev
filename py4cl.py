@@ -34,8 +34,9 @@ config = {}
 
 # eval_globals store the environment used
 # when evaluating strings from Lisp
-eval_globals = {"_py4cl_config_file_name" : ".config",
-		"_py4cl_config"           : config}
+eval_globals = {
+	"_py4cl_config_file_name" : ".config"
+}
 
 def load_config():
 	config_file = sys.argv[1] + eval_globals["_py4cl_config_file_name"]
@@ -451,18 +452,23 @@ import fractions
 # Turn a Fraction into a Lisp RATIO
 lispifiers[fractions.Fraction] = str
 
-eval_globals.update({"_py4cl_objects"            : python_objects,
-		     "_py4cl_LispCallbackObject" : LispCallbackObject,
-		     "_py4cl_Symbol"             : Symbol,
-		     "_py4cl_UnknownLispObject"  : UnknownLispObject,
-		     "_py4cl_generator"          : generator,
-		     "_py4cl_load_config"        : load_config,
-		     "_py4cl_fraction"           : fractions.Fraction})
+eval_globals.update({
+	"_py4cl_objects"            : python_objects,
+	"_py4cl_LispCallbackObject" : LispCallbackObject,
+	"_py4cl_Symbol"             : Symbol,
+	"_py4cl_UnknownLispObject"  : UnknownLispObject,
+	"_py4cl_generator"          : generator,
+	"_py4cl_load_config"        : load_config,
+	"_py4cl_fraction"           : fractions.Fraction,
+	"_py4cl_config"             : config
+})
 
 if numpy_is_installed:
-	eval_globals.update({"_py4cl_numpy"                : numpy,
-			     # FIXME Is this a bug? load_pickled_ndarray should not be global.
-			     "_py4cl_load_pickled_ndarray" : load_pickled_ndarray})
+	eval_globals.update({
+		"_py4cl_numpy"                : numpy,
+		# FIXME Is this a bug? load_pickled_ndarray should not be global.
+		"_py4cl_load_pickled_ndarray" : load_pickled_ndarray
+	})
 
 # Lisp-side customize-able lispifiers
 # FIXME: Is there a better way than going to each of the above and doing manually?
