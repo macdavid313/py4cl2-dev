@@ -498,26 +498,15 @@ if numpy_is_installed:
 		= load_pickled_ndarray
 
 # Lisp-side customize-able lispifiers
-# FIXME: Style of code below has to be fixed.
-# FIXME: Is there a better way than going to each of the above and doing manually?
 old_lispifiers = lispifiers.copy()
-def customize_lispifiers ():
-    def fun_1 (key):
-        if key.__module__ == "builtins" or key.__module__ == "__main__":
-            return ""
-        else:
-            return key.__module__ + "."
-    def fun_2 (key):
-        if key.__name__ != "NoneType":
-            return key.__name__
-        else:
-            return "type(None)"
-    for key in lispifiers.keys():
-        expr = """lambda x: "#.(py4cl2::customize " + old_lispifiers[{0}](x) + ")"  """
-        expr = expr.format(fun_1(key) + fun_2(key))
-        lispifiers[key] = eval(expr)
+def customize_wrap_lispifier(lispifier):
+	def _customize_wrap_lispifier(x):
+		lispified_value = lispifier(x)
+		return "#.(py4cl2::customize {0})".format(lispified_value)
+	return _customize_wrap_lispifier
 
-customize_lispifiers()
+for key in lispifiers:
+	lispifiers[key] = customize_wrap_lispifier(lispifiers[key])
 
 async_results = {}  # Store for function results. Might be Exception
 async_handle = itertools.count(0) # Running counter
