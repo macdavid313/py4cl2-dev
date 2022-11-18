@@ -314,9 +314,10 @@ if numpy_is_installed: #########################################################
 			" ".join(map(lispify, numpy.ndarray.flatten(obj)))
 		)
 		element_type = numpy_to_cl_type(obj.dtype)
-		dimensions = str(obj.size)
+		total_size = str(obj.size)
+		dimensions = lispify(obj.shape)
 		array_1d = "(cl:make-array {0} :element-type {1} :initial-contents {2})".format(
-			dimensions, element_type, initial_contents
+			total_size, element_type, initial_contents
 		)
 		displaced_array = """#.(cl:make-array (cl:quote {0}) :element-type {1}
 		  :displaced-index-offset 0 :displaced-to {2})""".format(
