@@ -16,7 +16,7 @@ import inspect
 import json
 import os
 import signal
-import traceback as tb
+import traceback
 
 numpy_is_installed = False
 try:
@@ -56,6 +56,12 @@ def load_config():
 		eval_globals["_py4cl_config"] = {}
 
 load_config()
+
+# Handle fractions (python Fraction -> Lisp RATIO)
+# Lisp will pass strings containing "_py4cl_fraction(n,d)"
+# where n and d are integers.
+import fractions
+eval_globals["_py4cl_fraction"] = fractions.Fraction
 
 class Symbol(object):
 	"""
@@ -190,43 +196,63 @@ return_values = 0
 # Copyright (c) 2018  Marco Heisig <marco.heisig@fau.de>
 #               2019  Ben Dudson <benjamin.dudson@york.ac.uk>
 
-def lispify_infnan_if_needed(lispified_float):
+def lispify_dict(dict):
+	segment_  = "(cl::setf (cl::gethash (cl::quote {}) table) (cl::quote {}))"
+	segments  = [segment_.format(lispify(key), lispify(value)) for key, value in dict.items()]
+	segment_0 = "#.(cl::let ((table (cl::make-hash-table :test (cl::quote cl::equal)))) "
+	segment_1 = " ".join(segments)
+	segment_2 = " table)"
+	return segment_0 + segment_1 + segment_2
 
-	table = {
-		"infd0": "float-features:double-float-positive-infinity",
-		"-infd0": "float-features:double-float-negative-infinity",
-		"inf": "float-features:single-float-positive-infinity",
-		"-inf": "float-features:single-float-negative-infinity",
+def lispify_tuple(tuple):
+	if len(tuple) == 0:
+		return "\"()\""
+	else:
+		return "(quote (" + " ".join(lispify(elt) for elt in tuple) + "))"
 
-		"nan": "float-features:single-float-nan",
-		"nand0": "float-features:double-float-nan",
-	}
+def lispify_infnan_if_needed (lispified_float):
+	infnan = {"infd0" : "float-features:double-float-positive-infinity",
+			  "-infd0": "float-features:double-float-negative-infinity",
+			  "inf"   : "float-features:single-float-positive-infinity",
+			  "-inf"  : "float-features:single-float-negative-infinity",
+			  "nan"   : "float-features:single-float-nan",
+			  "nand0" : "float-features:double-float-nan"}
+	if lispified_float in infnan:
+		return infnan[lispified_float]
+	else:
+		return lispified_float
 
-	if lispified_float in table: return table[lispified_float]
-	else: return lispified_float
+def lispify_float (float):
+	if "e" in str(float):
+		lispified_float = str(float).replace("e", "d")
+	else:
+		lispified_float = str(float)+"d0"
+	return lispify_infnan_if_needed(lispified_float)
+
+def lispify_exception (obj):
+	if config["printPythonTraceback"]:
+		return "".join(traceback.format_exception(type(obj), obj, obj.__traceback__))
+	else:
+		return str(obj)
 
 lispifiers = {
-	bool       : lambda x: "T" if x else "NIL",
-	type(None) : lambda x: "\"None\"",
-	int        : str,
-	# floats in python are double-floats of common-lisp
-	float      : lambda x: lispify_infnan_if_needed(str(x).replace("e", "d") if str(x).find("e") != -1 else str(x)+"d0"),
-	complex    : lambda x: "#C(" + lispify(x.real) + " " + lispify(x.imag) + ")",
-	list       : lambda x: "#(" + " ".join(lispify(elt) for elt in x) + ")",
-	tuple      : lambda x: "\"()\"" if len(x)==0 else "(quote (" + " ".join(lispify(elt) for elt in x) + "))",
-	# Note: With dict -> hash table, use :test equal so that string keys work as expected
-	# TODO: Should test be equalp? Should users get an option to choose the test functions?
-	# Should we avoid using cl:make-hash-table and use custom hash-tables instead?
-	dict       : lambda x: "#.(let ((table (make-hash-table :test (quote cl:equal)))) " + " ".join("(setf (gethash (quote {}) table) (quote {}))".format(lispify(key), lispify(value)) for key, value in x.items()) + " table)",
-	str        : lambda x: "\"" + x.replace("\\", "\\\\").replace("\"", "\\\"")  + "\"",
-	type       : lambda x: "(quote " + python_to_lisp_type[x] + ")",
-	Symbol     : str,
+	bool              : lambda x: "T" if x else "NIL",
+	type(None)        : lambda x: "\"None\"", # Better be "NIL"..?
+	int               : str,
+	fractions.Fraction: str,
+	float             : lispify_float, # floats in python are double-floats of common-lisp
+	complex           : lambda x: "#C(" + lispify(x.real) + " " + lispify(x.imag) + ")",
+	list              : lambda x: "#(" + " ".join(lispify(elt) for elt in x) + ")",
+	tuple             : lispify_tuple,
+	dict              : lispify_dict,
+	str               : lambda x: "\"" + x.replace("\\", "\\\\").replace("\"", "\\\"")  + "\"",
+	type              : lambda x: "(quote " + python_to_lisp_type[x] + ")",
+	Symbol            : str,
 	UnknownLispObject : lambda x: "#.(py4cl2::lisp-object {})".format(x.handle),
-	# there is another lispifier just below
 }
 
 if numpy_is_installed: #########################################################
-	NUMPY_PICKLE_INDEX = 0 # optional increment in lispify_ndarray and reset to 0
+	NUMPY_PICKLE_INDEX = 0 # optional increment in ndarray_lispifier and reset to 0
 
 	def load_pickled_ndarray(filename):
 		arr = numpy.load(filename, allow_pickle = True)
@@ -262,7 +288,7 @@ if numpy_is_installed: #########################################################
 		except KeyError:
 			raise Exception("Do not know how to convert {0} to CL.".format(str(numpy_type)))
 
-	def lispify_ndarray(obj):
+	def lispify_ndarray (obj):
 		"""Convert a NumPy array to a string which can be read by lisp
 		Example:
 		array([[1, 2],     => "#2A((1 2) (3 4))"
@@ -282,29 +308,45 @@ if numpy_is_installed: #########################################################
 		if obj.ndim == 0:
 			# Convert to scalar then lispify
 			return lispify(obj.item())
-		array = "(cl:make-array " + str(obj.size) + " :initial-contents (cl:list " \
-			+ " ".join(map(lispify, numpy.ndarray.flatten(obj))) + ") :element-type " \
-			+ numpy_to_cl_type(obj.dtype) + ")"
-		array = "#.(cl:make-array (cl:quote " + lispify(obj.shape) + ") :element-type " \
-			+ numpy_to_cl_type(obj.dtype) + " :displaced-to " + array + " :displaced-index-offset 0)"
-		return array
+		# First convert to 1d array, then ask lisp to reshape
+		# FIXME: Will this play nice with both row-major and column-major arrays?
+		initial_contents = "(cl:list {0})".format(
+			" ".join(map(lispify, numpy.ndarray.flatten(obj)))
+		)
+		element_type = numpy_to_cl_type(obj.dtype)
+		dimensions = str(obj.size)
+		array_1d = "(cl:make-array {0} :element-type {1} :initial-contents {2})".format(
+			dimensions, element_type, initial_contents
+		)
+		displaced_array = """#.(cl:make-array (cl:quote {0}) :element-type {1}
+		  :displaced-index-offset 0 :displaced-to {2})""".format(
+			  dimensions, element_type, array_1d
+		  )
+		return displaced_array
+
 	# Register the handler to convert Python -> Lisp strings
+	#
+	# The case for integers is handled inside lispify
+	# function. At best, you would want a way to compare /
+	# check for subtypes to avoid casing on u/int64/32/16/8.
 	lispifiers.update({
 		numpy.ndarray: lispify_ndarray,
-		numpy.float64: lambda x : lispify_infnan_if_needed(str(x).replace("e", "d") if str(x).find("e") != -1 else str(x)+"d0"),
+		numpy.float64: lispify_float,
 		numpy.float32: lambda x : lispify_infnan_if_needed(str(x)),
-		numpy.bool_  : lambda x : "1" if x else "0"
-		# The case for integers is handled inside lispify function. At best, you would want a way to compare / check for subtypes to avoid casing on u/int64/32/16/8.
-	})
+		numpy.bool_  : lambda x : "1" if x else "0"})
 # end of "if numpy_is_installed" ###############################################
 
-def lispify_handle(obj):
+def handle_lispifier (obj):
 	"""
 	Store an object in a dictionary, and return a handle
 	"""
 	handle = next(python_handle)
 	python_objects[handle] = obj
-	return "#.(py4cl2::customize (py4cl2::make-python-object-finalize :type \""+str(type(obj))+"\" :handle "+str(handle)+"))"
+	return "#.(py4cl2::customize "                        + \
+		"(py4cl2::make-python-object-finalize :type " + \
+		"\"{0}\"".format(str(type(obj)))            + \
+		" :handle {0}".format(str(handle))          + \
+		"))"
 
 def lispify(obj):
 	"""
@@ -314,19 +356,18 @@ def lispify(obj):
 	"""
 	if return_values > 0:
 		if isinstance(obj, Exception): return str(obj)
-		else: return lispify_handle(obj)
+		else: return handle_lispifier(obj)
 
 	try:
 		if isinstance(obj, Exception):
-			return ("".join(tb.format_exception(type(obj), obj, obj.__traceback__))
-					if config["printPythonTraceback"] else str(obj))
+			return lispify_exception(obj)
 		elif numpy_is_installed and isinstance(obj, numpy.integer):
 			return str(obj)
 		else:
 			return lispifiers[type(obj)](obj)
 	except KeyError:
 		# Unknown type. Return a handle to a python object
-		return lispify_handle(obj)
+		return handle_lispifier(obj)
 
 def generator(function, stop_value):
 	temp = None
@@ -364,8 +405,7 @@ def send_value(cmd_type, value):
 	except Exception as e:
 		# At this point the message type has been sent,
 		# so we cannot change to throw an exception/signal condition
-		value_str = ("Lispify error: " + "".join(tb.format_exception(type(e), e, e.__traceback__)) \
-					 if config["printPythonTraceback"] else str(e))
+		value_str = "Lispify error: {0}".format(lispify_exception(e))
 	excess_char_count = (0 if os.name != "nt" else value_str.count("\n"))
 	print(len(value_str)+excess_char_count, file = return_stream, flush=True)
 	return_stream.write(value_str)
@@ -442,42 +482,42 @@ def message_dispatch_loop():
 python_objects = {}
 python_handle = itertools.count(0)
 
-# Handle fractions (RATIO type)
-# Lisp will pass strings containing "_py4cl_fraction(n,d)"
-# where n and d are integers.
-import fractions
-# Turn a Fraction into a Lisp RATIO
-lispifiers[fractions.Fraction] = str
-
-eval_globals.update({
-	"_py4cl_objects"            : python_objects,
-	"_py4cl_LispCallbackObject" : LispCallbackObject,
-	"_py4cl_Symbol"             : Symbol,
-	"_py4cl_UnknownLispObject"  : UnknownLispObject,
-	"_py4cl_generator"          : generator,
-	"_py4cl_load_config"        : load_config,
-	"_py4cl_fraction"           : fractions.Fraction,
-	"_py4cl_config"             : config
-})
-
+# Make callback function accessible to evaluation
+eval_globals["_py4cl_LispCallbackObject"] = LispCallbackObject
+eval_globals["_py4cl_Symbol"] = Symbol
+eval_globals["_py4cl_UnknownLispObject"] = UnknownLispObject
+eval_globals["_py4cl_objects"] = python_objects
+eval_globals["_py4cl_generator"] = generator
+# These store the environment used when eval-ing strings from Lisp
+eval_globals["_py4cl_config"] = config
+eval_globals["_py4cl_load_config"] = load_config
 if numpy_is_installed:
-	eval_globals.update({
-		"_py4cl_numpy"                : numpy,
-		# FIXME Is this a bug? load_pickled_ndarray should not be global.
-		"_py4cl_load_pickled_ndarray" : load_pickled_ndarray
-	})
+	# NumPy is used for Lisp -> Python conversion of multidimensional arrays
+	eval_globals["_py4cl_numpy"] = numpy
+	eval_globals["_py4cl_load_pickled_ndarray"] \
+		= load_pickled_ndarray
 
 # Lisp-side customize-able lispifiers
 # FIXME: Style of code below has to be fixed.
 # FIXME: Is there a better way than going to each of the above and doing manually?
 old_lispifiers = lispifiers.copy()
-for key in lispifiers.keys():
-	lispifiers[key] = eval(
-		"""
-lambda x: "#.(py4cl2::customize " + old_lispifiers[{0}](x) + ")"
-""".format(("" if key.__module__ == "builtins" or key.__module__ == "__main__" \
-			else key.__module__ + ".") + key.__name__ if key.__name__ != "NoneType" \
-		   else "type(None)"))
+def customize_lispifiers ():
+    def fun_1 (key):
+        if key.__module__ == "builtins" or key.__module__ == "__main__":
+            return ""
+        else:
+            return key.__module__ + "."
+    def fun_2 (key):
+        if key.__name__ != "NoneType":
+            return key.__name__
+        else:
+            return "type(None)"
+    for key in lispifiers.keys():
+        expr = """lambda x: "#.(py4cl2::customize " + old_lispifiers[{0}](x) + ")"  """
+        expr = expr.format(fun_1(key) + fun_2(key))
+        lispifiers[key] = eval(expr)
+
+customize_lispifiers()
 
 async_results = {}  # Store for function results. Might be Exception
 async_handle = itertools.count(0) # Running counter
