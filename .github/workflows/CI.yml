@@ -41,9 +41,10 @@ jobs:
 
     - name: Install python modules
       run: | # need to use sudo
-        sudo apt install python3-numpy
-        sudo apt install python3-networkx
-        sudo apt install python3-matplotlib
+        sudo apt install python3-pip
+        pip3 install numpy
+        pip3 install networkx
+        pip3 install matplotlib
 
     - name: download-tests
       run: |
