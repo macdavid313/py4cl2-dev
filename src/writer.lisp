@@ -285,9 +285,13 @@ The lisp function is stored in the same object store as other objects."
 
 (defun stream-write-string (str stream)
   "Write a string to a stream, putting the length first"
-  ;; Convert the value to a string
-  (princ (length str) stream)  ; Header, so length of string is known to reader
+  ;; Header, so length of string is known to reader
+  (princ #+os-windows (- (length str)
+                         (count #\return str))
+         #-os-windows (length str)
+         stream)
   (terpri stream)
+  ;; Convert the value to a string
   (write-string str stream))
 
 (defun stream-write-value (value stream)
