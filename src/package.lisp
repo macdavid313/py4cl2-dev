@@ -6,6 +6,7 @@
   (:shadowing-import-from #:iterate #:as #:for)
   (:export ; python-process
    #:python-process-startup-error
+   #:*additional-init-codes*
    #:pystart
    #:with-python-output
    #:pystop

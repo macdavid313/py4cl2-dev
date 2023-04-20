@@ -36,7 +36,12 @@ See https://askubuntu.com/questions/1118109/how-do-i-tell-if-a-command-is-runnin
   (defvar *python-output-thread*)
 
   ;;; This is more of a global variable than a dynamic variable.
-  (defvar *in-with-python-output* nil))
+  (defvar *in-with-python-output* nil)
+
+  (declaim (type list *additional-init-codes*))
+  (defvar *additional-init-codes* nil
+    "A list of strings each of which should be python code. All the code
+will be executed by PYSTART. The code should not contain single-quotation marks."))
 
 (define-condition python-process-startup-error (error)
   ((command :initarg :command :reader command))
@@ -161,7 +166,8 @@ By default this is is set to (CONFIG-VAR 'PYCMD)
         ((and (not (numpy-installed-p))
               (member :arrays *internal-features*))
          (removef *internal-features* :arrays)))
-  (incf *current-python-process-id*))
+  (incf *current-python-process-id*)
+  (apply #'raw-pyexec *additional-init-codes*))
 
 (defmacro with-python-output (&body forms-decl)
   "Gets the output of the python program executed in FORMS-DECL in the form a string."
