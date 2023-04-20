@@ -5,7 +5,15 @@
 
 (defvar *internal-features* nil
   "A list of PY4CL2 features available on the system. (Support for :ARRAYS
-requires numpy and is only determinable after python process has started.)")
+requires numpy and is only determinable after python process has started.)
+
+The list can include one or more of:
+
+  :WITH-PYTHON-OUTPUT
+  :TYPED-ARRAYS
+  :FAST-LARGE-ARRAY-TRANSFER
+  :INTERRUPT
+")
 
 (defun numpy-installed-p ()
   (handler-case (progn
