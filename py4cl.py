@@ -17,6 +17,7 @@ import json
 import os
 import signal
 import traceback
+from pathlib import Path
 
 numpy_is_installed = False
 try:
@@ -39,8 +40,8 @@ eval_globals = {
 }
 
 def load_config():
-	config_file = sys.argv[1] + eval_globals["_py4cl_config_file_name"]
-	if os.path.exists(config_file):
+	config_file = Path(__file__).parent.joinpath(eval_globals["_py4cl_config_file_name"])
+	if config_file.exists():
 		with open(config_file) as conf:
 			global config
 			config = json.load(conf)
@@ -515,4 +516,5 @@ async_results = {}  # Store for function results. Might be Exception
 async_handle = itertools.count(0) # Running counter
 
 # Main loop
-message_dispatch_loop()
+if __name__ == "__main__":
+   message_dispatch_loop()

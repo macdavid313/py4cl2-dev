@@ -93,33 +93,17 @@ By default this is is set to (CONFIG-VAR 'PYCMD)
                      :input :stream
                      :output :stream
                      :error-output :stream)
-                     #+unix
-                     (uiop:launch-program
-                      (concatenate 'string
-                                   "bash -c \""
-                                   (bash-escape-string command)
-                                   " -u "
-                                   ;; Unbuffered is important if flush=True
-                                   ;; should not be required for asynchronous output.
-                                   ;; TODO: Add test for unflushed async output; been unable to
-                                   ;; The closest thing is the INTERRUPT test.
-                                   "\"' <(cat <<\"EOF\""
-                                   (string #\newline)
-                                   *python-code*
-                                   (string #\newline)
-                                   "EOF"
-                                   (string #\newline)
-                                   ")'\" "
-                                   (bash-escape-string
-                                    (directory-namestring
-                                     (asdf:component-pathname
-                                      (asdf:find-component
-                                       :py4cl2 "python-code"))))
-                                   "\"")
-                      :stream :lock
-                      :input :stream
-                      :output :stream
-                      :error-output :stream))
+                    #+unix
+                    (uiop:launch-program
+                     (let ((pythonpath (bash-escape-string
+                                        (directory-namestring
+                                         (asdf:component-pathname (asdf:find-component :py4cl2 "python-code"))))))
+                       (setf (uiop:getenv "PYTHONPATH") pythonpath)
+                       (format nil "~a -m py4cl" (bash-escape-string command)))
+                     :stream :lock
+                     :input :stream
+                     :output :stream
+                     :error-output :stream))
               (sleep 0.1)
               (unless (python-alive-p)
                 (let ((*python-startup-error* (or (ignore-errors
